@@ -1,4 +1,4 @@
-import { Router, Response } from "express";
+import express, { Response } from "express";
 import { z } from "zod";
 import prisma from "../lib/prisma.js";
 import { AppError, asyncHandler } from "../middleware/errorHandler.js";
@@ -6,7 +6,7 @@ import { authenticate, requireUser, AuthenticatedRequest } from "../middleware/a
 import { TaskStatus } from "@prisma/client";
 import { canUserTransition } from "@sarovar/shared";
 
-const router = Router();
+const router: express.Router = express.Router();
 
 // Apply authentication and user check to all routes
 router.use(authenticate);

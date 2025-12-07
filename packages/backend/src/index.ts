@@ -11,7 +11,7 @@ import userRoutes from "./routes/user.js";
 // Validate environment configuration
 validateConfig();
 
-const app = express();
+const app: express.Application = express();
 
 // Middleware
 app.use(helmet());
