@@ -1,0 +1,122 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String
+  role        UserRole @default(USER)
+  firebaseUid String   @unique
+  hotelId     String?  @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  hotel        Hotel?        @relation(fields: [hotelId], references: [id])
+  taskUpdates  TaskProgress[] @relation("UpdatedBy")
+  auditLogs    AuditLog[]    @relation("ChangedBy")
+
+  @@index([firebaseUid])
+  @@index([email])
+}
+
+model Hotel {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique
+  address   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User?
+  taskProgress TaskProgress[]
+  auditLogs    AuditLog[]
+
+  @@index([code])
+}
+
+model Department {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  createdAt DateTime   @default(now())
+  questions Question[]
+}
+
+model Category {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  createdAt DateTime   @default(now())
+  questions Question[]
+}
+
+model Question {
+  id            String   @id @default(cuid())
+  serialNo      Int      @unique
+  checklistItem String
+  categoryId    String
+  departmentId  String
+  createdAt     DateTime @default(now())
+
+  category     Category       @relation(fields: [categoryId], references: [id])
+  department   Department     @relation(fields: [departmentId], references: [id])
+  taskProgress TaskProgress[]
+  auditLogs    AuditLog[]
+
+  @@index([categoryId])
+  @@index([departmentId])
+}
+
+model TaskProgress {
+  id            String     @id @default(cuid())
+  hotelId       String
+  questionId    String
+  status        TaskStatus @default(PENDING)
+  estimatedDate DateTime?
+  updatedAt     DateTime   @updatedAt
+  updatedById   String
+
+  hotel     Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  question  Question @relation(fields: [questionId], references: [id])
+  updatedBy User     @relation("UpdatedBy", fields: [updatedById], references: [id])
+
+  @@unique([hotelId, questionId])
+  @@index([hotelId])
+  @@index([questionId])
+  @@index([status])
+}
+
+model AuditLog {
+  id              String     @id @default(cuid())
+  hotelId         String
+  questionId      String
+  previousStatus  TaskStatus?
+  newStatus       TaskStatus
+  changedById     String
+  isAdminOverride Boolean    @default(false)
+  createdAt       DateTime   @default(now())
+
+  hotel     Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  question  Question @relation(fields: [questionId], references: [id])
+  changedBy User     @relation("ChangedBy", fields: [changedById], references: [id])
+
+  @@index([hotelId])
+  @@index([questionId])
+  @@index([createdAt])
+}
+
