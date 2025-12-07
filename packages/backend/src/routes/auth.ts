@@ -1,11 +1,11 @@
-import { Router, Response } from "express";
+import express, { Response } from "express";
 import { z } from "zod";
 import prisma from "../lib/prisma.js";
 import { verifyIdToken } from "../lib/firebase.js";
 import { AppError, asyncHandler } from "../middleware/errorHandler.js";
 import { authenticate, AuthenticatedRequest } from "../middleware/auth.js";
 
-const router = Router();
+const router: express.Router = express.Router();
 
 const verifyTokenSchema = z.object({
   token: z.string().min(1),

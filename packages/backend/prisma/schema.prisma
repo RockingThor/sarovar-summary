@@ -28,9 +28,9 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  hotel        Hotel?        @relation(fields: [hotelId], references: [id])
-  taskUpdates  TaskProgress[] @relation("UpdatedBy")
-  auditLogs    AuditLog[]    @relation("ChangedBy")
+  hotel       Hotel?         @relation(fields: [hotelId], references: [id])
+  taskUpdates TaskProgress[] @relation("UpdatedBy")
+  auditLogs   AuditLog[]     @relation("ChangedBy")
 
   @@index([firebaseUid])
   @@index([email])
@@ -102,14 +102,14 @@ model TaskProgress {
 }
 
 model AuditLog {
-  id              String     @id @default(cuid())
+  id              String      @id @default(cuid())
   hotelId         String
   questionId      String
   previousStatus  TaskStatus?
   newStatus       TaskStatus
   changedById     String
-  isAdminOverride Boolean    @default(false)
-  createdAt       DateTime   @default(now())
+  isAdminOverride Boolean     @default(false)
+  createdAt       DateTime    @default(now())
 
   hotel     Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   question  Question @relation(fields: [questionId], references: [id])
@@ -119,4 +119,3 @@ model AuditLog {
   @@index([questionId])
   @@index([createdAt])
 }
-

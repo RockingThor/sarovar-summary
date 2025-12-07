@@ -1,4 +1,4 @@
-import { Router, Response } from "express";
+import express, { Response } from "express";
 import { z } from "zod";
 import prisma from "../lib/prisma.js";
 import { createFirebaseUser, deleteFirebaseUser } from "../lib/firebase.js";
@@ -7,7 +7,7 @@ import { authenticate, requireAdmin, AuthenticatedRequest } from "../middleware/
 import { TaskStatus, UserRole } from "@prisma/client";
 import { canUserTransition } from "@sarovar/shared";
 
-const router = Router();
+const router: express.Router = express.Router();
 
 // Apply authentication and admin check to all routes
 router.use(authenticate);
