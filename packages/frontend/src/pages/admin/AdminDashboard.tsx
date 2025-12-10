@@ -40,6 +40,7 @@ import {
   AlertCircle,
   Loader2,
   ArrowRight,
+  Ban,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
@@ -54,6 +55,9 @@ interface Hotel {
   pendingTasks: number;
   inProgressTasks: number;
   completedTasks: number;
+  notApplicableTasks: number;
+  totalScore: number;
+  completedScore: number;
   progressPercentage: number;
 }
 
@@ -103,6 +107,10 @@ export default function AdminDashboard() {
   const totalCompleted = hotels.reduce((sum, h) => sum + h.completedTasks, 0);
   const totalInProgress = hotels.reduce((sum, h) => sum + h.inProgressTasks, 0);
   const totalPending = hotels.reduce((sum, h) => sum + h.pendingTasks, 0);
+  const totalNA = hotels.reduce(
+    (sum, h) => sum + (h.notApplicableTasks || 0),
+    0
+  );
 
   const handleCreateHotel = (e: React.FormEvent) => {
     e.preventDefault();
@@ -235,7 +243,7 @@ export default function AdminDashboard() {
       }
     >
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
         <Card className="opacity-0 animate-fade-in stagger-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Hotels</CardTitle>
@@ -284,10 +292,23 @@ export default function AdminDashboard() {
             <p className="text-xs text-muted-foreground">Not yet started</p>
           </CardContent>
         </Card>
+        <Card className="opacity-0 animate-fade-in stagger-5">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">N/A</CardTitle>
+            <Ban className="h-4 w-4 text-gray-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-600">{totalNA}</div>
+            <p className="text-xs text-muted-foreground">Not applicable</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Hotels Table */}
-      <Card className="opacity-0 animate-fade-in stagger-5">
+      <Card
+        className="opacity-0 animate-fade-in"
+        style={{ animationDelay: "0.3s" }}
+      >
         <CardHeader>
           <CardTitle>All Hotels</CardTitle>
           <CardDescription>
@@ -317,6 +338,7 @@ export default function AdminDashboard() {
                   <TableHead className="text-center">Pending</TableHead>
                   <TableHead className="text-center">In Progress</TableHead>
                   <TableHead className="text-center">Done</TableHead>
+                  <TableHead className="text-center">N/A</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -368,6 +390,11 @@ export default function AdminDashboard() {
                     <TableCell className="text-center">
                       <span className="text-green-600 font-medium">
                         {hotel.completedTasks}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <span className="text-gray-600 font-medium">
+                        {hotel.notApplicableTasks || 0}
                       </span>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">

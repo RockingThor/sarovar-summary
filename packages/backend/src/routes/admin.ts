@@ -23,7 +23,7 @@ const createHotelSchema = z.object({
 });
 
 const updateTaskSchema = z.object({
-  status: z.enum(["PENDING", "IN_PROGRESS", "DONE"]),
+  status: z.enum(["PENDING", "IN_PROGRESS", "DONE", "NOT_APPLICABLE"]),
   estimatedDate: z.string().datetime().optional().nullable(),
 });
 
@@ -51,35 +51,46 @@ router.get(
       },
     });
 
-    // Get total questions count
-    const totalQuestions = await prisma.question.count();
+    // Get all questions with their scores
+    const allQuestions = await prisma.question.findMany({
+      select: { id: true, scoring: true },
+    });
+    const totalQuestions = allQuestions.length;
+    const totalScore = allQuestions.reduce((sum, q) => sum + q.scoring, 0);
 
     // Get progress for each hotel
     const hotelsWithProgress = await Promise.all(
       hotels.map(async (hotel) => {
-        const statusCounts = await prisma.taskProgress.groupBy({
-          by: ["status"],
+        const allProgress = await prisma.taskProgress.findMany({
           where: { hotelId: hotel.id },
-          _count: true,
+          include: { question: { select: { scoring: true } } },
         });
+
+        const progressByQuestion = new Map(allProgress.map((p) => [p.questionId, p]));
 
         const counts = {
           PENDING: 0,
           IN_PROGRESS: 0,
           DONE: 0,
+          NOT_APPLICABLE: 0,
         };
+        let completedScore = 0;
+        let naScore = 0;
 
-        statusCounts.forEach((item) => {
-          counts[item.status] = item._count;
+        allQuestions.forEach((q) => {
+          const progress = progressByQuestion.get(q.id);
+          const status = progress?.status || "PENDING";
+          counts[status]++;
+          if (status === "DONE") {
+            completedScore += q.scoring;
+          } else if (status === "NOT_APPLICABLE") {
+            naScore += q.scoring;
+          }
         });
 
-        // Tasks not yet in TaskProgress are considered PENDING
-        const trackedTasks = counts.PENDING + counts.IN_PROGRESS + counts.DONE;
-        const untrackedTasks = totalQuestions - trackedTasks;
-        counts.PENDING += untrackedTasks;
-
-        const completedPercentage =
-          totalQuestions > 0 ? Math.round((counts.DONE / totalQuestions) * 100) : 0;
+        // Calculate progress based on scoring (excluding N/A items)
+        const applicableScore = totalScore - naScore;
+        const progressPercentage = applicableScore > 0 ? Math.round((completedScore / applicableScore) * 100) : 0;
 
         return {
           id: hotel.id,
@@ -92,7 +103,10 @@ router.get(
           pendingTasks: counts.PENDING,
           inProgressTasks: counts.IN_PROGRESS,
           completedTasks: counts.DONE,
-          progressPercentage: completedPercentage,
+          notApplicableTasks: counts.NOT_APPLICABLE,
+          totalScore,
+          completedScore,
+          progressPercentage,
         };
       })
     );
@@ -224,6 +238,9 @@ router.get(
       checklistItem: q.checklistItem,
       category: q.category,
       department: q.department,
+      keyWords: q.keyWords,
+      importance: q.importance,
+      scoring: q.scoring,
       taskProgressId: q.taskProgress[0]?.id || null,
       status: q.taskProgress[0]?.status || "PENDING",
       estimatedDate: q.taskProgress[0]?.estimatedDate || null,

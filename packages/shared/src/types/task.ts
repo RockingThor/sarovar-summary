@@ -1,4 +1,4 @@
-export type TaskStatus = "PENDING" | "IN_PROGRESS" | "DONE";
+export type TaskStatus = "PENDING" | "IN_PROGRESS" | "DONE" | "NOT_APPLICABLE";
 
 export interface TaskProgress {
   id: string;
@@ -46,7 +46,10 @@ export interface DashboardStats {
   pendingTasks: number;
   inProgressTasks: number;
   completedTasks: number;
+  notApplicableTasks: number;
   progressPercentage: number;
+  totalScore: number;
+  completedScore: number;
   departmentProgress: DepartmentProgress[];
 }
 
@@ -57,6 +60,9 @@ export interface DepartmentProgress {
   pending: number;
   inProgress: number;
   completed: number;
+  notApplicable: number;
   percentage: number;
+  totalScore: number;
+  completedScore: number;
 }
 

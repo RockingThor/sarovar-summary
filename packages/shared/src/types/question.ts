@@ -16,6 +16,9 @@ export interface Question {
   checklistItem: string;
   categoryId: string;
   departmentId: string;
+  keyWords: string[];
+  importance: string;
+  scoring: number;
   category: Category;
   department: Department;
 }

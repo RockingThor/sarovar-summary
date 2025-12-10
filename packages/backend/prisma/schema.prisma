@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -16,6 +17,7 @@ enum TaskStatus {
   PENDING
   IN_PROGRESS
   DONE
+  NOT_APPLICABLE
 }
 
 model User {
@@ -71,6 +73,9 @@ model Question {
   checklistItem String
   categoryId    String
   departmentId  String
+  keyWords      String[]
+  importance    String   @default("Med")
+  scoring       Float    @default(1.0)
   createdAt     DateTime @default(now())
 
   category     Category       @relation(fields: [categoryId], references: [id])

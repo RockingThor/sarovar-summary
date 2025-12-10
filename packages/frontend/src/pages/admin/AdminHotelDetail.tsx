@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "@/lib/api";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import StatusBadge from "@/components/StatusBadge";
+import StatusBadge, { ImportanceBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -49,6 +49,7 @@ import {
   AlertCircle,
   Building2,
   User,
+  Ban,
 } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
@@ -58,6 +59,9 @@ interface Task {
   checklistItem: string;
   category: { id: string; name: string };
   department: { id: string; name: string };
+  keyWords: string[];
+  importance: string;
+  scoring: number;
   taskProgressId: string | null;
   status: string;
   estimatedDate: string | null;
@@ -149,18 +153,39 @@ export default function AdminHotelDetail() {
     });
   }, [tasks, departmentFilter, categoryFilter, statusFilter]);
 
-  // Calculate stats
+  // Calculate stats with scoring
   const stats = useMemo(() => {
     const total = tasks.length;
     const pending = tasks.filter((t) => t.status === "PENDING").length;
     const inProgress = tasks.filter((t) => t.status === "IN_PROGRESS").length;
     const done = tasks.filter((t) => t.status === "DONE").length;
+    const notApplicable = tasks.filter(
+      (t) => t.status === "NOT_APPLICABLE"
+    ).length;
+
+    // Calculate scoring-based percentage
+    const totalScore = tasks.reduce((sum, t) => sum + t.scoring, 0);
+    const completedScore = tasks
+      .filter((t) => t.status === "DONE")
+      .reduce((sum, t) => sum + t.scoring, 0);
+    const naScore = tasks
+      .filter((t) => t.status === "NOT_APPLICABLE")
+      .reduce((sum, t) => sum + t.scoring, 0);
+
+    const applicableScore = totalScore - naScore;
+
     return {
       total,
       pending,
       inProgress,
       done,
-      percentage: total > 0 ? Math.round((done / total) * 100) : 0,
+      notApplicable,
+      totalScore,
+      completedScore,
+      percentage:
+        applicableScore > 0
+          ? Math.round((completedScore / applicableScore) * 100)
+          : 0,
     };
   }, [tasks]);
 
@@ -236,7 +261,7 @@ export default function AdminHotelDetail() {
       }
     >
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-5 mb-6">
+      <div className="grid gap-4 md:grid-cols-6 mb-6">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">
@@ -248,6 +273,15 @@ export default function AdminHotelDetail() {
               <Progress value={stats.percentage} className="h-2 flex-1" />
               <span className="text-lg font-bold">{stats.percentage}%</span>
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Score: {stats.completedScore.toFixed(1)} /{" "}
+              {(
+                stats.totalScore -
+                tasks
+                  .filter((t) => t.status === "NOT_APPLICABLE")
+                  .reduce((sum, t) => sum + t.scoring, 0)
+              ).toFixed(1)}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -288,6 +322,17 @@ export default function AdminHotelDetail() {
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
               {stats.done}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">N/A</CardTitle>
+            <Ban className="h-4 w-4 text-gray-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-600">
+              {stats.notApplicable}
             </div>
           </CardContent>
         </Card>
@@ -389,6 +434,7 @@ export default function AdminHotelDetail() {
                       <SelectItem value="PENDING">Pending</SelectItem>
                       <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
                       <SelectItem value="DONE">Completed</SelectItem>
+                      <SelectItem value="NOT_APPLICABLE">N/A</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -406,6 +452,8 @@ export default function AdminHotelDetail() {
                     <TableHead>Checklist Item</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Department</TableHead>
+                    <TableHead>Importance</TableHead>
+                    <TableHead className="text-right">Score</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Est. Date</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -427,6 +475,12 @@ export default function AdminHotelDetail() {
                       </TableCell>
                       <TableCell className="text-sm">
                         {task.department.name}
+                      </TableCell>
+                      <TableCell>
+                        <ImportanceBadge importance={task.importance} />
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm">
+                        {task.scoring}
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={task.status} />
@@ -554,9 +608,18 @@ export default function AdminHotelDetail() {
                   <SelectItem value="PENDING">Pending</SelectItem>
                   <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
                   <SelectItem value="DONE">Completed</SelectItem>
+                  <SelectItem value="NOT_APPLICABLE">N/A</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {editStatus === "NOT_APPLICABLE" && (
+              <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-md">
+                <p className="text-sm text-muted-foreground">
+                  Marking this task as N/A will exclude it from the completion
+                  score calculation.
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Estimated Completion Date</Label>
               <DatePicker
