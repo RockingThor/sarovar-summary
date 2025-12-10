@@ -2,8 +2,8 @@ import axios from 'axios'
 import { getIdToken } from './firebase'
 
 const api = axios.create({
-  // baseURL: 'https://sarovar-summary-backend.vercel.app/api',
-  baseURL: 'http://localhost:3001/api',
+   baseURL: 'https://sarovar-summary-backend.vercel.app/api',
+  //baseURL: 'http://localhost:3001/api',
   headers: {
     'Content-Type': 'application/json',
   },
