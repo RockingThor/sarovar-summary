@@ -1,3 +1,5 @@
+import type { TaskStatus } from "./task";
+
 export interface Department {
   id: string;
   name: string;
@@ -26,5 +28,4 @@ export interface QuestionWithProgress extends Question {
   };
 }
 
-export type TaskStatus = "PENDING" | "IN_PROGRESS" | "DONE";
 

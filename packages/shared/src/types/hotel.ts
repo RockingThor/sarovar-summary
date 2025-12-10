@@ -1,3 +1,4 @@
+import type { TaskStatus } from "./task";
 export interface Hotel {
   id: string;
   name: string;
@@ -52,5 +53,4 @@ export interface TaskProgressWithQuestion {
   };
 }
 
-export type TaskStatus = "PENDING" | "IN_PROGRESS" | "DONE";
 
