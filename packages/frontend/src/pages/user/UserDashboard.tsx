@@ -1,20 +1,26 @@
-import { useState, useMemo } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { userApi } from '@/lib/api'
-import { useAuth } from '@/contexts/AuthContext'
-import DashboardLayout from '@/components/layout/DashboardLayout'
-import StatusBadge from '@/components/StatusBadge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { userApi } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+import DashboardLayout from "@/components/layout/DashboardLayout";
+import StatusBadge, { ImportanceBadge } from "@/components/StatusBadge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -22,7 +28,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -30,132 +36,186 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { DatePicker } from '@/components/ui/date-picker'
-import { Label } from '@/components/ui/label'
-import { toast } from 'sonner'
-import { Loader2, CheckCircle2, Clock, AlertCircle, ArrowRight, Building2 } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
-import { getNextAllowedStatuses, TASK_STATUS_LABELS } from '@sarovar/shared'
+} from "@/components/ui/table";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import {
+  Loader2,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  ArrowRight,
+  Building2,
+  Ban,
+} from "lucide-react";
+import { formatDate } from "@/lib/utils";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Legend,
+  Tooltip,
+} from "recharts";
+import { getNextAllowedStatuses, TASK_STATUS_LABELS } from "@sarovar/shared";
 
 interface Task {
-  questionId: string
-  serialNo: number
-  checklistItem: string
-  category: { id: string; name: string }
-  department: { id: string; name: string }
-  taskProgressId: string | null
-  status: string
-  estimatedDate: string | null
-  updatedAt: string | null
+  questionId: string;
+  serialNo: number;
+  checklistItem: string;
+  category: { id: string; name: string };
+  department: { id: string; name: string };
+  keyWords: string[];
+  importance: string;
+  scoring: number;
+  taskProgressId: string | null;
+  status: string;
+  estimatedDate: string | null;
+  updatedAt: string | null;
 }
 
 interface DepartmentProgress {
-  departmentId: string
-  departmentName: string
-  total: number
-  pending: number
-  inProgress: number
-  completed: number
-  percentage: number
+  departmentId: string;
+  departmentName: string;
+  total: number;
+  pending: number;
+  inProgress: number;
+  completed: number;
+  notApplicable: number;
+  percentage: number;
+  totalScore: number;
+  completedScore: number;
 }
 
 const CHART_COLORS = {
-  PENDING: '#ef4444',
-  IN_PROGRESS: '#eab308',
-  DONE: '#22c55e',
-}
+  PENDING: "#ef4444",
+  IN_PROGRESS: "#eab308",
+  DONE: "#22c55e",
+  NOT_APPLICABLE: "#9ca3af",
+};
 
 export default function UserDashboard() {
-  const { user } = useAuth()
-  const queryClient = useQueryClient()
-  
-  const [departmentFilter, setDepartmentFilter] = useState<string>('all')
-  const [categoryFilter, setCategoryFilter] = useState<string>('all')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  
-  const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
-  const [newStatus, setNewStatus] = useState<string>('')
-  const [estimatedDate, setEstimatedDate] = useState<Date | undefined>()
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const [departmentFilter, setDepartmentFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [newStatus, setNewStatus] = useState<string>("");
+  const [estimatedDate, setEstimatedDate] = useState<Date | undefined>();
 
   const { data: dashboardData, isLoading: dashboardLoading } = useQuery({
-    queryKey: ['user', 'dashboard'],
+    queryKey: ["user", "dashboard"],
     queryFn: userApi.getDashboard,
-  })
+  });
 
   const { data: tasksData, isLoading: tasksLoading } = useQuery({
-    queryKey: ['user', 'tasks'],
+    queryKey: ["user", "tasks"],
     queryFn: () => userApi.getTasks(),
-  })
+  });
 
   const { data: departmentsData } = useQuery({
-    queryKey: ['user', 'departments'],
+    queryKey: ["user", "departments"],
     queryFn: userApi.getDepartments,
-  })
+  });
 
   const { data: categoriesData } = useQuery({
-    queryKey: ['user', 'categories'],
+    queryKey: ["user", "categories"],
     queryFn: userApi.getCategories,
-  })
+  });
 
   const updateTaskMutation = useMutation({
-    mutationFn: ({ questionId, data }: { questionId: string; data: { status: string; estimatedDate?: string | null } }) =>
-      userApi.updateTask(questionId, data),
+    mutationFn: ({
+      questionId,
+      data,
+    }: {
+      questionId: string;
+      data: { status: string; estimatedDate?: string | null };
+    }) => userApi.updateTask(questionId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user'] })
-      setUpdateDialogOpen(false)
-      setSelectedTask(null)
-      toast.success('Task updated successfully!')
+      queryClient.invalidateQueries({ queryKey: ["user"] });
+      setUpdateDialogOpen(false);
+      setSelectedTask(null);
+      toast.success("Task updated successfully!");
     },
     onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : 'Failed to update task'
-      toast.error(message)
+      const message =
+        error instanceof Error ? error.message : "Failed to update task";
+      toast.error(message);
     },
-  })
+  });
 
-  const stats = dashboardData?.data
-  const tasks: Task[] = tasksData?.data || []
-  const departments = departmentsData?.data || []
-  const categories = categoriesData?.data || []
-  const departmentProgress: DepartmentProgress[] = stats?.departmentProgress || []
+  const stats = dashboardData?.data;
+  const tasks: Task[] = tasksData?.data || [];
+  const departments = departmentsData?.data || [];
+  const categories = categoriesData?.data || [];
+  const departmentProgress: DepartmentProgress[] =
+    stats?.departmentProgress || [];
 
   // Filter tasks
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
-      if (departmentFilter !== 'all' && task.department.id !== departmentFilter) return false
-      if (categoryFilter !== 'all' && task.category.id !== categoryFilter) return false
-      if (statusFilter !== 'all' && task.status !== statusFilter) return false
-      return true
-    })
-  }, [tasks, departmentFilter, categoryFilter, statusFilter])
+      if (departmentFilter !== "all" && task.department.id !== departmentFilter)
+        return false;
+      if (categoryFilter !== "all" && task.category.id !== categoryFilter)
+        return false;
+      if (statusFilter !== "all" && task.status !== statusFilter) return false;
+      return true;
+    });
+  }, [tasks, departmentFilter, categoryFilter, statusFilter]);
 
   // Chart data
   const pieData = useMemo(() => {
-    if (!stats) return []
+    if (!stats) return [];
     return [
-      { name: 'Pending', value: stats.pendingTasks, color: CHART_COLORS.PENDING },
-      { name: 'In Progress', value: stats.inProgressTasks, color: CHART_COLORS.IN_PROGRESS },
-      { name: 'Completed', value: stats.completedTasks, color: CHART_COLORS.DONE },
-    ]
-  }, [stats])
+      {
+        name: "Pending",
+        value: stats.pendingTasks,
+        color: CHART_COLORS.PENDING,
+      },
+      {
+        name: "In Progress",
+        value: stats.inProgressTasks,
+        color: CHART_COLORS.IN_PROGRESS,
+      },
+      {
+        name: "Completed",
+        value: stats.completedTasks,
+        color: CHART_COLORS.DONE,
+      },
+      {
+        name: "N/A",
+        value: stats.notApplicableTasks || 0,
+        color: CHART_COLORS.NOT_APPLICABLE,
+      },
+    ].filter((item) => item.value > 0);
+  }, [stats]);
 
   const handleUpdateTask = (task: Task) => {
-    setSelectedTask(task)
-    const allowedStatuses = getNextAllowedStatuses(task.status, false)
-    setNewStatus(allowedStatuses[0] || task.status)
-    setEstimatedDate(task.estimatedDate ? new Date(task.estimatedDate) : undefined)
-    setUpdateDialogOpen(true)
-  }
+    setSelectedTask(task);
+    const allowedStatuses = getNextAllowedStatuses(task.status, false);
+    setNewStatus(allowedStatuses[0] || task.status);
+    setEstimatedDate(
+      task.estimatedDate ? new Date(task.estimatedDate) : undefined
+    );
+    setUpdateDialogOpen(true);
+  };
 
   const handleSaveTask = () => {
-    if (!selectedTask) return
-    
+    if (!selectedTask) return;
+
     // Validate estimated date when moving to IN_PROGRESS
-    if (newStatus === 'IN_PROGRESS' && !estimatedDate && !selectedTask.estimatedDate) {
-      toast.error('Please select an estimated completion date')
-      return
+    if (
+      newStatus === "IN_PROGRESS" &&
+      !estimatedDate &&
+      !selectedTask.estimatedDate
+    ) {
+      toast.error("Please select an estimated completion date");
+      return;
     }
 
     updateTaskMutation.mutate({
@@ -164,10 +224,12 @@ export default function UserDashboard() {
         status: newStatus,
         estimatedDate: estimatedDate ? estimatedDate.toISOString() : null,
       },
-    })
-  }
+    });
+  };
 
-  const allowedStatuses = selectedTask ? getNextAllowedStatuses(selectedTask.status, false) : []
+  const allowedStatuses = selectedTask
+    ? getNextAllowedStatuses(selectedTask.status, false)
+    : [];
 
   if (dashboardLoading || tasksLoading) {
     return (
@@ -176,13 +238,17 @@ export default function UserDashboard() {
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       </DashboardLayout>
-    )
+    );
   }
 
   return (
     <DashboardLayout
       title={`Welcome, ${user?.name}`}
-      description={user?.hotel ? `${user.hotel.name} (${user.hotel.code})` : 'Hotel Progress Tracker'}
+      description={
+        user?.hotel
+          ? `${user.hotel.name} (${user.hotel.code})`
+          : "Hotel Progress Tracker"
+      }
     >
       {/* Overview Section */}
       <div className="grid gap-6 md:grid-cols-3 mb-8">
@@ -214,14 +280,18 @@ export default function UserDashboard() {
               </ResponsiveContainer>
             </div>
             <div className="text-center mt-2">
-              <span className="text-3xl font-bold text-primary">{stats?.progressPercentage || 0}%</span>
-              <span className="text-sm text-muted-foreground ml-2">Complete</span>
+              <span className="text-3xl font-bold text-primary">
+                {stats?.progressPercentage || 0}%
+              </span>
+              <span className="text-sm text-muted-foreground ml-2">
+                Complete
+              </span>
             </div>
           </CardContent>
         </Card>
 
         {/* Stats Cards */}
-        <div className="md:col-span-2 grid gap-4 grid-cols-2 lg:grid-cols-4">
+        <div className="md:col-span-2 grid gap-4 grid-cols-2 lg:grid-cols-5">
           <Card className="opacity-0 animate-fade-in stagger-2">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Total Tasks</CardTitle>
@@ -236,7 +306,9 @@ export default function UserDashboard() {
               <AlertCircle className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">{stats?.pendingTasks || 0}</div>
+              <div className="text-2xl font-bold text-red-600">
+                {stats?.pendingTasks || 0}
+              </div>
             </CardContent>
           </Card>
           <Card className="opacity-0 animate-fade-in stagger-4">
@@ -245,7 +317,9 @@ export default function UserDashboard() {
               <Clock className="h-4 w-4 text-yellow-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">{stats?.inProgressTasks || 0}</div>
+              <div className="text-2xl font-bold text-yellow-600">
+                {stats?.inProgressTasks || 0}
+              </div>
             </CardContent>
           </Card>
           <Card className="opacity-0 animate-fade-in stagger-5">
@@ -254,14 +328,33 @@ export default function UserDashboard() {
               <CheckCircle2 className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{stats?.completedTasks || 0}</div>
+              <div className="text-2xl font-bold text-green-600">
+                {stats?.completedTasks || 0}
+              </div>
+            </CardContent>
+          </Card>
+          <Card
+            className="opacity-0 animate-fade-in"
+            style={{ animationDelay: "0.25s" }}
+          >
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">N/A</CardTitle>
+              <Ban className="h-4 w-4 text-gray-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-gray-600">
+                {stats?.notApplicableTasks || 0}
+              </div>
             </CardContent>
           </Card>
         </div>
       </div>
 
       {/* Department Progress */}
-      <Card className="mb-8 opacity-0 animate-fade-in" style={{ animationDelay: '0.3s' }}>
+      <Card
+        className="mb-8 opacity-0 animate-fade-in"
+        style={{ animationDelay: "0.3s" }}
+      >
         <CardHeader>
           <CardTitle>Department Progress</CardTitle>
           <CardDescription>Progress breakdown by department</CardDescription>
@@ -291,6 +384,7 @@ export default function UserDashboard() {
             <TabsTrigger value="pending">Pending</TabsTrigger>
             <TabsTrigger value="in_progress">In Progress</TabsTrigger>
             <TabsTrigger value="done">Completed</TabsTrigger>
+            <TabsTrigger value="na">N/A</TabsTrigger>
           </TabsList>
         </div>
 
@@ -299,29 +393,43 @@ export default function UserDashboard() {
           <CardContent className="pt-4">
             <div className="flex flex-wrap gap-4">
               <div className="flex-1 min-w-[150px]">
-                <Label className="text-xs text-muted-foreground">Department</Label>
-                <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                <Label className="text-xs text-muted-foreground">
+                  Department
+                </Label>
+                <Select
+                  value={departmentFilter}
+                  onValueChange={setDepartmentFilter}
+                >
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="All Departments" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Departments</SelectItem>
                     {departments.map((d: { id: string; name: string }) => (
-                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="flex-1 min-w-[150px]">
-                <Label className="text-xs text-muted-foreground">Category</Label>
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <Label className="text-xs text-muted-foreground">
+                  Category
+                </Label>
+                <Select
+                  value={categoryFilter}
+                  onValueChange={setCategoryFilter}
+                >
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="All Categories" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Categories</SelectItem>
                     {categories.map((c: { id: string; name: string }) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -337,6 +445,7 @@ export default function UserDashboard() {
                     <SelectItem value="PENDING">Pending</SelectItem>
                     <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
                     <SelectItem value="DONE">Completed</SelectItem>
+                    <SelectItem value="NOT_APPLICABLE">N/A</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -348,22 +457,28 @@ export default function UserDashboard() {
           <TasksTable tasks={filteredTasks} onUpdateTask={handleUpdateTask} />
         </TabsContent>
         <TabsContent value="pending" className="mt-4">
-          <TasksTable 
-            tasks={filteredTasks.filter(t => t.status === 'PENDING')} 
-            onUpdateTask={handleUpdateTask} 
+          <TasksTable
+            tasks={filteredTasks.filter((t) => t.status === "PENDING")}
+            onUpdateTask={handleUpdateTask}
           />
         </TabsContent>
         <TabsContent value="in_progress" className="mt-4">
-          <TasksTable 
-            tasks={filteredTasks.filter(t => t.status === 'IN_PROGRESS')} 
-            onUpdateTask={handleUpdateTask} 
+          <TasksTable
+            tasks={filteredTasks.filter((t) => t.status === "IN_PROGRESS")}
+            onUpdateTask={handleUpdateTask}
           />
         </TabsContent>
         <TabsContent value="done" className="mt-4">
-          <TasksTable 
-            tasks={filteredTasks.filter(t => t.status === 'DONE')} 
-            onUpdateTask={handleUpdateTask} 
+          <TasksTable
+            tasks={filteredTasks.filter((t) => t.status === "DONE")}
+            onUpdateTask={handleUpdateTask}
             showUpdateButton={false}
+          />
+        </TabsContent>
+        <TabsContent value="na" className="mt-4">
+          <TasksTable
+            tasks={filteredTasks.filter((t) => t.status === "NOT_APPLICABLE")}
+            onUpdateTask={handleUpdateTask}
           />
         </TabsContent>
       </Tabs>
@@ -380,9 +495,12 @@ export default function UserDashboard() {
           <div className="space-y-4 py-4">
             <div className="p-3 bg-muted rounded-md">
               <p className="text-sm text-muted-foreground">Current Status</p>
-              <StatusBadge status={selectedTask?.status || ''} className="mt-1" />
+              <StatusBadge
+                status={selectedTask?.status || ""}
+                className="mt-1"
+              />
             </div>
-            
+
             {allowedStatuses.length > 0 ? (
               <>
                 <div className="space-y-2">
@@ -400,17 +518,33 @@ export default function UserDashboard() {
                     </SelectContent>
                   </Select>
                 </div>
-                
-                {(newStatus === 'IN_PROGRESS' || selectedTask?.status === 'IN_PROGRESS') && (
+
+                {newStatus === "NOT_APPLICABLE" && (
+                  <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-md">
+                    <p className="text-sm text-muted-foreground">
+                      Marking this task as N/A will exclude it from the
+                      completion score calculation.
+                    </p>
+                  </div>
+                )}
+
+                {(newStatus === "IN_PROGRESS" ||
+                  (selectedTask?.status === "IN_PROGRESS" &&
+                    newStatus !== "NOT_APPLICABLE")) && (
                   <div className="space-y-2">
-                    <Label>Estimated Completion Date {newStatus === 'IN_PROGRESS' && '*'}</Label>
+                    <Label>
+                      Estimated Completion Date{" "}
+                      {newStatus === "IN_PROGRESS" && "*"}
+                    </Label>
                     <DatePicker
                       date={estimatedDate}
                       onDateChange={setEstimatedDate}
                       placeholder="Select estimated date"
                     />
-                    {newStatus === 'IN_PROGRESS' && (
-                      <p className="text-xs text-muted-foreground">Required when starting a task</p>
+                    {newStatus === "IN_PROGRESS" && (
+                      <p className="text-xs text-muted-foreground">
+                        Required when starting a task
+                      </p>
                     )}
                   </div>
                 )}
@@ -423,18 +557,24 @@ export default function UserDashboard() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setUpdateDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setUpdateDialogOpen(false)}
+            >
               Cancel
             </Button>
             {allowedStatuses.length > 0 && (
-              <Button onClick={handleSaveTask} disabled={updateTaskMutation.isPending}>
+              <Button
+                onClick={handleSaveTask}
+                disabled={updateTaskMutation.isPending}
+              >
                 {updateTaskMutation.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Updating...
                   </>
                 ) : (
-                  'Update Status'
+                  "Update Status"
                 )}
               </Button>
             )}
@@ -442,16 +582,20 @@ export default function UserDashboard() {
         </DialogContent>
       </Dialog>
     </DashboardLayout>
-  )
+  );
 }
 
 interface TasksTableProps {
-  tasks: Task[]
-  onUpdateTask: (task: Task) => void
-  showUpdateButton?: boolean
+  tasks: Task[];
+  onUpdateTask: (task: Task) => void;
+  showUpdateButton?: boolean;
 }
 
-function TasksTable({ tasks, onUpdateTask, showUpdateButton = true }: TasksTableProps) {
+function TasksTable({
+  tasks,
+  onUpdateTask,
+  showUpdateButton = true,
+}: TasksTableProps) {
   if (tasks.length === 0) {
     return (
       <Card>
@@ -462,7 +606,7 @@ function TasksTable({ tasks, onUpdateTask, showUpdateButton = true }: TasksTable
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -475,9 +619,13 @@ function TasksTable({ tasks, onUpdateTask, showUpdateButton = true }: TasksTable
               <TableHead>Checklist Item</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Department</TableHead>
+              <TableHead>Importance</TableHead>
+              <TableHead className="text-right">Score</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Est. Date</TableHead>
-              {showUpdateButton && <TableHead className="text-right">Actions</TableHead>}
+              {showUpdateButton && (
+                <TableHead className="text-right">Actions</TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -490,7 +638,15 @@ function TasksTable({ tasks, onUpdateTask, showUpdateButton = true }: TasksTable
                   <span className="line-clamp-2">{task.checklistItem}</span>
                 </TableCell>
                 <TableCell className="text-sm">{task.category.name}</TableCell>
-                <TableCell className="text-sm">{task.department.name}</TableCell>
+                <TableCell className="text-sm">
+                  {task.department.name}
+                </TableCell>
+                <TableCell>
+                  <ImportanceBadge importance={task.importance} />
+                </TableCell>
+                <TableCell className="text-right font-mono text-sm">
+                  {task.scoring}
+                </TableCell>
                 <TableCell>
                   <StatusBadge status={task.status} />
                 </TableCell>
@@ -503,7 +659,7 @@ function TasksTable({ tasks, onUpdateTask, showUpdateButton = true }: TasksTable
                       variant="ghost"
                       size="sm"
                       onClick={() => onUpdateTask(task)}
-                      disabled={task.status === 'DONE'}
+                      disabled={task.status === "DONE"}
                     >
                       Update
                       <ArrowRight className="h-4 w-4 ml-1" />
@@ -516,6 +672,5 @@ function TasksTable({ tasks, onUpdateTask, showUpdateButton = true }: TasksTable
         </Table>
       </CardContent>
     </Card>
-  )
+  );
 }
-
