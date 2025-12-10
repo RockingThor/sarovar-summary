@@ -13,7 +13,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset --force",
-    "vercel-build": "npm run build"
+    "vercel-build": "cd ../shared && pnpm run build && cd ../backend && pnpm run build"
   },
   "dependencies": {
     "@prisma/client": "^5.7.1",
