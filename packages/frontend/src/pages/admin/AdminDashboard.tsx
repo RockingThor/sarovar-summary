@@ -35,7 +35,6 @@ import { toast } from "sonner";
 import {
   Plus,
   Building2,
-  Users,
   CheckCircle2,
   Clock,
   AlertCircle,
@@ -101,7 +100,6 @@ export default function AdminDashboard() {
 
   // Calculate summary stats
   const totalHotels = hotels.length;
-  const totalTasks = hotels.reduce((sum, h) => sum + h.totalTasks, 0);
   const totalCompleted = hotels.reduce((sum, h) => sum + h.completedTasks, 0);
   const totalInProgress = hotels.reduce((sum, h) => sum + h.inProgressTasks, 0);
   const totalPending = hotels.reduce((sum, h) => sum + h.pendingTasks, 0);
