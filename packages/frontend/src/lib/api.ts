@@ -2,8 +2,8 @@ import axios from 'axios'
 import { getIdToken } from './firebase'
 
 const api = axios.create({
-   baseURL: 'https://sarovar-summary-backend.vercel.app/api',
-  //baseURL: 'http://localhost:3001/api',
+  // baseURL: 'https://sarovar-summary-backend.vercel.app/api',
+  baseURL: 'http://localhost:3001/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -64,7 +64,7 @@ export const adminApi = {
     const response = await api.get(`/admin/hotels/${id}`)
     return response.data
   },
-  updateTask: async (id: string, data: { status: string; estimatedDate?: string | null }) => {
+  updateTask: async (id: string, data: { status: string; estimatedDate?: string | null; completedDate?: string | null; remark?: string | null }) => {
     const response = await api.patch(`/admin/tasks/${id}`, data)
     return response.data
   },
@@ -78,6 +78,11 @@ export const adminApi = {
   },
   getCategories: async () => {
     const response = await api.get('/admin/categories')
+    return response.data
+  },
+  getDepartmentStats: async (hotelId?: string) => {
+    const params = hotelId ? `?hotelId=${hotelId}` : ''
+    const response = await api.get(`/admin/department-stats${params}`)
     return response.data
   },
 }
@@ -101,7 +106,7 @@ export const userApi = {
     const response = await api.get(`/user/tasks?${params.toString()}`)
     return response.data
   },
-  updateTask: async (questionId: string, data: { status: string; estimatedDate?: string | null }) => {
+  updateTask: async (questionId: string, data: { status: string; estimatedDate?: string | null; completedDate?: string | null; remark?: string | null }) => {
     const response = await api.patch(`/user/tasks/${questionId}`, data)
     return response.data
   },

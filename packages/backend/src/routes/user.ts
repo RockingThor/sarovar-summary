@@ -16,6 +16,8 @@ router.use(requireUser);
 const updateTaskSchema = z.object({
   status: z.enum(["PENDING", "IN_PROGRESS", "DONE", "NOT_APPLICABLE"]),
   estimatedDate: z.string().datetime().optional().nullable(),
+  completedDate: z.string().datetime().optional().nullable(),
+  remark: z.string().optional().nullable(),
 });
 
 const taskFiltersSchema = z.object({
@@ -60,7 +62,11 @@ router.get(
       const status = progress?.status || "PENDING";
       counts[status]++;
       if (status === "DONE") {
+        // Full score for completed tasks
         completedScore += q.scoring;
+      } else if (status === "IN_PROGRESS") {
+        // Half score for in-progress tasks
+        completedScore += q.scoring / 2;
       } else if (status === "NOT_APPLICABLE") {
         naScore += q.scoring;
       }
@@ -91,7 +97,11 @@ router.get(
           const status = progress?.status || "PENDING";
           deptCounts[status]++;
           if (status === "DONE") {
+            // Full score for completed tasks
             deptCompletedScore += q.scoring;
+          } else if (status === "IN_PROGRESS") {
+            // Half score for in-progress tasks
+            deptCompletedScore += q.scoring / 2;
           } else if (status === "NOT_APPLICABLE") {
             deptNaScore += q.scoring;
           }
@@ -175,6 +185,8 @@ router.get(
       taskProgressId: q.taskProgress[0]?.id || null,
       status: (q.taskProgress[0]?.status || "PENDING") as TaskStatus,
       estimatedDate: q.taskProgress[0]?.estimatedDate || null,
+      completedDate: q.taskProgress[0]?.completedDate || null,
+      remark: q.taskProgress[0]?.remark || null,
       updatedAt: q.taskProgress[0]?.updatedAt || null,
     }));
 
@@ -232,6 +244,11 @@ router.patch(
       throw new AppError("Estimated completion date is required when starting a task", 400);
     }
 
+    // Require completed date when moving to DONE
+    if (data.status === "DONE" && !data.completedDate) {
+      throw new AppError("Completion date is required when marking a task as done", 400);
+    }
+
     // Upsert task progress and create audit log
     const [updatedTask] = await prisma.$transaction([
       prisma.taskProgress.upsert({
@@ -246,11 +263,15 @@ router.patch(
           questionId,
           status: data.status as TaskStatus,
           estimatedDate: data.estimatedDate ? new Date(data.estimatedDate) : null,
+          completedDate: data.completedDate ? new Date(data.completedDate) : null,
+          remark: data.remark || null,
           updatedById: req.user!.id,
         },
         update: {
           status: data.status as TaskStatus,
           estimatedDate: data.estimatedDate ? new Date(data.estimatedDate) : undefined,
+          completedDate: data.completedDate ? new Date(data.completedDate) : undefined,
+          remark: data.remark !== undefined ? data.remark : undefined,
           updatedById: req.user!.id,
         },
         include: {
@@ -293,6 +314,8 @@ router.patch(
         taskProgressId: updatedTask.id,
         status: updatedTask.status,
         estimatedDate: updatedTask.estimatedDate,
+        completedDate: updatedTask.completedDate,
+        remark: updatedTask.remark,
         updatedAt: updatedTask.updatedAt,
       },
     });

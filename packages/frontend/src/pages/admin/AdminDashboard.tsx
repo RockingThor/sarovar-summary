@@ -31,6 +31,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { toast } from "sonner";
 import {
   Plus,
@@ -41,6 +46,9 @@ import {
   Loader2,
   ArrowRight,
   Ban,
+  ChevronsUpDown,
+  Check,
+  Search,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
@@ -61,9 +69,25 @@ interface Hotel {
   progressPercentage: number;
 }
 
+interface DepartmentProgress {
+  departmentId: string;
+  departmentName: string;
+  total: number;
+  pending: number;
+  inProgress: number;
+  completed: number;
+  notApplicable: number;
+  totalScore: number;
+  completedScore: number;
+  percentage: number;
+}
+
 export default function AdminDashboard() {
   const queryClient = useQueryClient();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [selectedHotelFilter, setSelectedHotelFilter] = useState<string>("all");
+  const [hotelSearchOpen, setHotelSearchOpen] = useState(false);
+  const [hotelSearchQuery, setHotelSearchQuery] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     code: "",
@@ -75,6 +99,14 @@ export default function AdminDashboard() {
   const { data: hotelsData, isLoading } = useQuery({
     queryKey: ["admin", "hotels"],
     queryFn: adminApi.getHotels,
+  });
+
+  const { data: departmentStatsData } = useQuery({
+    queryKey: ["admin", "department-stats", selectedHotelFilter],
+    queryFn: () =>
+      adminApi.getDepartmentStats(
+        selectedHotelFilter !== "all" ? selectedHotelFilter : undefined
+      ),
   });
 
   const createHotelMutation = useMutation({
@@ -101,6 +133,8 @@ export default function AdminDashboard() {
   });
 
   const hotels: Hotel[] = hotelsData?.data || [];
+  const departmentProgress: DepartmentProgress[] =
+    departmentStatsData?.data || [];
 
   // Calculate summary stats
   const totalHotels = hotels.length;
@@ -182,10 +216,10 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <div className="border-t pt-4 mt-2">
-                  <p className="text-sm font-medium mb-3">Partner Details</p>
+                  <p className="text-sm font-medium mb-3">Hotel Details</p>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="partnerName">Partner Name</Label>
+                      <Label htmlFor="partnerName">General Manager Name</Label>
                       <Input
                         id="partnerName"
                         value={formData.partnerName}
@@ -200,7 +234,9 @@ export default function AdminDashboard() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="partnerEmail">Partner Email</Label>
+                      <Label htmlFor="partnerEmail">
+                        General Manager Email
+                      </Label>
                       <Input
                         id="partnerEmail"
                         type="email"
@@ -303,6 +339,146 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Department Progress */}
+      <Card
+        className="mb-8 opacity-0 animate-fade-in"
+        style={{ animationDelay: "0.25s" }}
+      >
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <CardTitle>Progress by Department</CardTitle>
+              <CardDescription>
+                {selectedHotelFilter === "all"
+                  ? "Overall progress breakdown by department across all hotels"
+                  : `Progress breakdown for ${
+                      hotels.find((h) => h.id === selectedHotelFilter)?.name ||
+                      "selected hotel"
+                    }`}
+              </CardDescription>
+            </div>
+            <Popover open={hotelSearchOpen} onOpenChange={setHotelSearchOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={hotelSearchOpen}
+                  className="w-[300px] justify-between"
+                >
+                  {selectedHotelFilter === "all"
+                    ? "All Hotels"
+                    : hotels.find((h) => h.id === selectedHotelFilter)?.name ||
+                      "Select hotel..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[300px] p-0">
+                <div className="flex items-center border-b px-3">
+                  <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                  <Input
+                    placeholder="Search hotels..."
+                    value={hotelSearchQuery}
+                    onChange={(e) => setHotelSearchQuery(e.target.value)}
+                    className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 w-full bg-transparent"
+                  />
+                </div>
+                <div className="max-h-[300px] overflow-y-auto p-1">
+                  <div
+                    className={`relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground ${
+                      selectedHotelFilter === "all" ? "bg-accent" : ""
+                    }`}
+                    onClick={() => {
+                      setSelectedHotelFilter("all");
+                      setHotelSearchOpen(false);
+                      setHotelSearchQuery("");
+                    }}
+                  >
+                    <Check
+                      className={`mr-2 h-4 w-4 ${
+                        selectedHotelFilter === "all"
+                          ? "opacity-100"
+                          : "opacity-0"
+                      }`}
+                    />
+                    All Hotels
+                  </div>
+                  {hotels
+                    .filter((hotel) =>
+                      hotel.name
+                        .toLowerCase()
+                        .includes(hotelSearchQuery.toLowerCase())
+                    )
+                    .map((hotel) => (
+                      <div
+                        key={hotel.id}
+                        className={`relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground ${
+                          selectedHotelFilter === hotel.id ? "bg-accent" : ""
+                        }`}
+                        onClick={() => {
+                          setSelectedHotelFilter(hotel.id);
+                          setHotelSearchOpen(false);
+                          setHotelSearchQuery("");
+                        }}
+                      >
+                        <Check
+                          className={`mr-2 h-4 w-4 ${
+                            selectedHotelFilter === hotel.id
+                              ? "opacity-100"
+                              : "opacity-0"
+                          }`}
+                        />
+                        {hotel.name}
+                      </div>
+                    ))}
+                  {hotels.filter((hotel) =>
+                    hotel.name
+                      .toLowerCase()
+                      .includes(hotelSearchQuery.toLowerCase())
+                  ).length === 0 &&
+                    hotelSearchQuery && (
+                      <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                        No hotels found
+                      </div>
+                    )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {departmentProgress.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {departmentProgress.map((dept) => (
+                <div
+                  key={dept.departmentId}
+                  className="p-4 border rounded-lg space-y-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">
+                      {dept.departmentName}
+                    </span>
+                    <span className="text-sm font-bold">
+                      {dept.percentage}%
+                    </span>
+                  </div>
+                  <Progress value={dept.percentage} className="h-2" />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>
+                      {dept.completed} done, {dept.inProgress} in progress
+                    </span>
+                    <span>{dept.total} total</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              No department data available
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Hotels Table */}
       <Card

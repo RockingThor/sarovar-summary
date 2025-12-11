@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/table";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -72,6 +73,8 @@ interface Task {
   taskProgressId: string | null;
   status: string;
   estimatedDate: string | null;
+  completedDate: string | null;
+  remark: string | null;
   updatedAt: string | null;
 }
 
@@ -107,6 +110,8 @@ export default function UserDashboard() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [newStatus, setNewStatus] = useState<string>("");
   const [estimatedDate, setEstimatedDate] = useState<Date | undefined>();
+  const [completedDate, setCompletedDate] = useState<Date | undefined>();
+  const [remark, setRemark] = useState<string>("");
 
   const { data: dashboardData, isLoading: dashboardLoading } = useQuery({
     queryKey: ["user", "dashboard"],
@@ -134,12 +139,19 @@ export default function UserDashboard() {
       data,
     }: {
       questionId: string;
-      data: { status: string; estimatedDate?: string | null };
+      data: {
+        status: string;
+        estimatedDate?: string | null;
+        completedDate?: string | null;
+        remark?: string | null;
+      };
     }) => userApi.updateTask(questionId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user"] });
       setUpdateDialogOpen(false);
       setSelectedTask(null);
+      setRemark("");
+      setCompletedDate(undefined);
       toast.success("Task updated successfully!");
     },
     onError: (error: unknown) => {
@@ -202,6 +214,10 @@ export default function UserDashboard() {
     setEstimatedDate(
       task.estimatedDate ? new Date(task.estimatedDate) : undefined
     );
+    setCompletedDate(
+      task.completedDate ? new Date(task.completedDate) : undefined
+    );
+    setRemark(task.remark || "");
     setUpdateDialogOpen(true);
   };
 
@@ -218,11 +234,19 @@ export default function UserDashboard() {
       return;
     }
 
+    // Validate completed date when moving to DONE
+    if (newStatus === "DONE" && !completedDate) {
+      toast.error("Please select the completion date");
+      return;
+    }
+
     updateTaskMutation.mutate({
       questionId: selectedTask.questionId,
       data: {
         status: newStatus,
         estimatedDate: estimatedDate ? estimatedDate.toISOString() : null,
+        completedDate: completedDate ? completedDate.toISOString() : null,
+        remark: remark || null,
       },
     });
   };
@@ -530,7 +554,8 @@ export default function UserDashboard() {
 
                 {(newStatus === "IN_PROGRESS" ||
                   (selectedTask?.status === "IN_PROGRESS" &&
-                    newStatus !== "NOT_APPLICABLE")) && (
+                    newStatus !== "NOT_APPLICABLE" &&
+                    newStatus !== "DONE")) && (
                   <div className="space-y-2">
                     <Label>
                       Estimated Completion Date{" "}
@@ -548,6 +573,30 @@ export default function UserDashboard() {
                     )}
                   </div>
                 )}
+
+                {newStatus === "DONE" && (
+                  <div className="space-y-2">
+                    <Label>Completion Date *</Label>
+                    <DatePicker
+                      date={completedDate}
+                      onDateChange={setCompletedDate}
+                      placeholder="Select completion date"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Required when marking a task as done
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label>Remark</Label>
+                  <Textarea
+                    value={remark}
+                    onChange={(e) => setRemark(e.target.value)}
+                    placeholder="Add any notes or remarks about this update..."
+                    rows={3}
+                  />
+                </div>
               </>
             ) : (
               <div className="text-center py-4 text-muted-foreground">
@@ -618,11 +667,11 @@ function TasksTable({
               <TableHead className="w-12">#</TableHead>
               <TableHead>Checklist Item</TableHead>
               <TableHead>Category</TableHead>
-              <TableHead>Department</TableHead>
               <TableHead>Importance</TableHead>
-              <TableHead className="text-right">Score</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Est. Date</TableHead>
+              <TableHead>Completed</TableHead>
+              <TableHead>Remark</TableHead>
               {showUpdateButton && (
                 <TableHead className="text-right">Actions</TableHead>
               )}
@@ -638,20 +687,26 @@ function TasksTable({
                   <span className="line-clamp-2">{task.checklistItem}</span>
                 </TableCell>
                 <TableCell className="text-sm">{task.category.name}</TableCell>
-                <TableCell className="text-sm">
-                  {task.department.name}
-                </TableCell>
                 <TableCell>
                   <ImportanceBadge importance={task.importance} />
-                </TableCell>
-                <TableCell className="text-right font-mono text-sm">
-                  {task.scoring}
                 </TableCell>
                 <TableCell>
                   <StatusBadge status={task.status} />
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {formatDate(task.estimatedDate)}
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {formatDate(task.completedDate)}
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground max-w-[150px]">
+                  {task.remark ? (
+                    <span className="line-clamp-2" title={task.remark}>
+                      {task.remark}
+                    </span>
+                  ) : (
+                    "-"
+                  )}
                 </TableCell>
                 {showUpdateButton && (
                   <TableCell className="text-right">

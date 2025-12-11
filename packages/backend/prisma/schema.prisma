@@ -1,6 +1,7 @@
 generator client {
   provider = "prisma-client-js"
-  // output   = "../node_modules/.prisma/client"
+  //output   = "../node_modules/.prisma/client"
+  output   = "../../frontend/node_modules/.prisma/client"
 }
 
 datasource db {
@@ -93,6 +94,8 @@ model TaskProgress {
   questionId    String
   status        TaskStatus @default(PENDING)
   estimatedDate DateTime?
+  completedDate DateTime?
+  remark        String?
   updatedAt     DateTime   @updatedAt
   updatedById   String
 
