@@ -25,6 +25,8 @@ const createHotelSchema = z.object({
 const updateTaskSchema = z.object({
   status: z.enum(["PENDING", "IN_PROGRESS", "DONE", "NOT_APPLICABLE"]),
   estimatedDate: z.string().datetime().optional().nullable(),
+  completedDate: z.string().datetime().optional().nullable(),
+  remark: z.string().optional().nullable(),
 });
 
 // Get all hotels with progress summary
@@ -82,7 +84,11 @@ router.get(
           const status = progress?.status || "PENDING";
           counts[status]++;
           if (status === "DONE") {
+            // Full score for completed tasks
             completedScore += q.scoring;
+          } else if (status === "IN_PROGRESS") {
+            // Half score for in-progress tasks
+            completedScore += q.scoring / 2;
           } else if (status === "NOT_APPLICABLE") {
             naScore += q.scoring;
           }
@@ -244,6 +250,8 @@ router.get(
       taskProgressId: q.taskProgress[0]?.id || null,
       status: q.taskProgress[0]?.status || "PENDING",
       estimatedDate: q.taskProgress[0]?.estimatedDate || null,
+      completedDate: q.taskProgress[0]?.completedDate || null,
+      remark: q.taskProgress[0]?.remark || null,
       updatedAt: q.taskProgress[0]?.updatedAt || null,
     }));
 
@@ -285,6 +293,8 @@ router.patch(
         data: {
           status: data.status as TaskStatus,
           estimatedDate: data.estimatedDate ? new Date(data.estimatedDate) : null,
+          completedDate: data.completedDate ? new Date(data.completedDate) : null,
+          remark: data.remark !== undefined ? data.remark : undefined,
           updatedById: req.user!.id,
         },
         include: {
@@ -372,6 +382,75 @@ router.get(
     res.json({
       success: true,
       data: departments,
+    });
+  })
+);
+
+// Get department-wise progress (optionally filtered by hotel)
+router.get(
+  "/department-stats",
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const { hotelId } = req.query;
+
+    const departments = await prisma.department.findMany();
+    const allQuestions = await prisma.question.findMany({
+      select: { id: true, scoring: true, departmentId: true },
+    });
+
+    // Filter progress by hotel if hotelId is provided
+    const progressWhere = hotelId ? { hotelId: hotelId as string } : {};
+    const allProgress = await prisma.taskProgress.findMany({
+      where: progressWhere,
+      include: { question: { select: { scoring: true, departmentId: true } } },
+    });
+
+    const progressByQuestion = new Map(allProgress.map((p) => [p.questionId, p]));
+
+    const departmentStats = departments.map((dept) => {
+      const deptQuestions = allQuestions.filter((q) => q.departmentId === dept.id);
+      const deptTotalScore = deptQuestions.reduce((sum, q) => sum + q.scoring, 0);
+
+      const deptCounts = {
+        PENDING: 0,
+        IN_PROGRESS: 0,
+        DONE: 0,
+        NOT_APPLICABLE: 0,
+      };
+      let deptCompletedScore = 0;
+      let deptNaScore = 0;
+
+      deptQuestions.forEach((q) => {
+        const progress = progressByQuestion.get(q.id);
+        const status = progress?.status || "PENDING";
+        deptCounts[status]++;
+        if (status === "DONE") {
+          deptCompletedScore += q.scoring;
+        } else if (status === "IN_PROGRESS") {
+          deptCompletedScore += q.scoring / 2;
+        } else if (status === "NOT_APPLICABLE") {
+          deptNaScore += q.scoring;
+        }
+      });
+
+      const deptApplicableScore = deptTotalScore - deptNaScore;
+
+      return {
+        departmentId: dept.id,
+        departmentName: dept.name,
+        total: deptQuestions.length,
+        pending: deptCounts.PENDING,
+        inProgress: deptCounts.IN_PROGRESS,
+        completed: deptCounts.DONE,
+        notApplicable: deptCounts.NOT_APPLICABLE,
+        totalScore: deptTotalScore,
+        completedScore: deptCompletedScore,
+        percentage: deptApplicableScore > 0 ? Math.round((deptCompletedScore / deptApplicableScore) * 100) : 0,
+      };
+    });
+
+    res.json({
+      success: true,
+      data: departmentStats,
     });
   })
 );

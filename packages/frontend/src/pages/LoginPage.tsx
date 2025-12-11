@@ -19,13 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import {
-  Loader2,
-  Building2,
-  CheckCircle2,
-  ArrowLeft,
-  Mail,
-} from "lucide-react";
+import { Loader2, CheckCircle2, ArrowLeft, Mail } from "lucide-react";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -103,9 +97,13 @@ export default function LoginPage() {
 
         <div className="relative z-10">
           <div className="flex items-center gap-3">
-            <Building2 className="h-10 w-10 text-white" />
+            <img
+              src="/sarovar-logo.png"
+              alt="Sarovar Hotels"
+              className="h-12 w-auto"
+            />
             <span className="text-2xl font-display font-bold text-white">
-              Sarovar Progress
+              Sarovar Preopening Checklist
             </span>
           </div>
         </div>
@@ -150,9 +148,13 @@ export default function LoginPage() {
         <Card className="w-full max-w-md border-0 shadow-xl">
           <CardHeader className="space-y-1 pb-6">
             <div className="lg:hidden flex items-center gap-2 mb-4">
-              <Building2 className="h-8 w-8 text-primary" />
+              <img
+                src="/sarovar-logo.png"
+                alt="Sarovar Hotels"
+                className="h-10 w-auto"
+              />
               <span className="text-xl font-display font-bold">
-                Sarovar Progress
+                Sarovar Preopening Checklist
               </span>
             </div>
             <CardTitle className="text-2xl font-display">
