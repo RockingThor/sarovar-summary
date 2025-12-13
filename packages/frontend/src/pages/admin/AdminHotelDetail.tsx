@@ -404,7 +404,7 @@ export default function AdminHotelDetail() {
     >
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-6 mb-6">
-        <Card>
+        <Card className="col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">
               Readiness of the Hotel
@@ -415,7 +415,7 @@ export default function AdminHotelDetail() {
               <Progress value={stats.percentage} className="h-2 flex-1" />
               <span className="text-lg font-bold">{stats.percentage}%</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
+            {/* <p className="text-xs text-muted-foreground mt-1">
               Score: {stats.completedScore.toFixed(1)} /{" "}
               {(
                 stats.totalScore -
@@ -423,17 +423,10 @@ export default function AdminHotelDetail() {
                   .filter((t) => t.status === "NOT_APPLICABLE")
                   .reduce((sum, t) => sum + t.scoring, 0)
               ).toFixed(1)}
-            </p>
+            </p> */}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-          </CardContent>
-        </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Pending</CardTitle>
