@@ -352,5 +352,85 @@ router.get(
   })
 );
 
+// Get soft opening date for the user's hotel
+router.get(
+  "/soft-opening-date",
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const hotelId = req.user!.hotelId!;
+
+    const hotel = await prisma.hotel.findUnique({
+      where: { id: hotelId },
+      select: {
+        id: true,
+        softOpeningDate: true,
+        softOpeningDateSubmitted: true,
+      },
+    });
+
+    if (!hotel) {
+      throw new AppError("Hotel not found", 404);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        softOpeningDate: hotel.softOpeningDate,
+        isSubmitted: hotel.softOpeningDateSubmitted,
+      },
+    });
+  })
+);
+
+// Schema for soft opening date
+const softOpeningDateSchema = z.object({
+  softOpeningDate: z.string().datetime(),
+});
+
+// Submit soft opening date (user can only do this once)
+router.post(
+  "/soft-opening-date",
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const hotelId = req.user!.hotelId!;
+    const data = softOpeningDateSchema.parse(req.body);
+
+    // Check if hotel already has a submitted soft opening date
+    const hotel = await prisma.hotel.findUnique({
+      where: { id: hotelId },
+      select: { softOpeningDateSubmitted: true },
+    });
+
+    if (!hotel) {
+      throw new AppError("Hotel not found", 404);
+    }
+
+    if (hotel.softOpeningDateSubmitted) {
+      throw new AppError("Soft opening date has already been submitted and cannot be changed", 400);
+    }
+
+    // Update the soft opening date and mark as submitted
+    const updatedHotel = await prisma.hotel.update({
+      where: { id: hotelId },
+      data: {
+        softOpeningDate: new Date(data.softOpeningDate),
+        softOpeningDateSubmitted: true,
+      },
+      select: {
+        id: true,
+        softOpeningDate: true,
+        softOpeningDateSubmitted: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        softOpeningDate: updatedHotel.softOpeningDate,
+        isSubmitted: updatedHotel.softOpeningDateSubmitted,
+      },
+      message: "Soft opening date submitted successfully",
+    });
+  })
+);
+
 export default router;
 

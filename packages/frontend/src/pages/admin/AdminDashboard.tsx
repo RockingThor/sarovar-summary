@@ -50,8 +50,13 @@ import {
   ChevronsUpDown,
   Check,
   Search,
+  CalendarDays,
+  Calendar,
+  Edit2,
 } from "lucide-react";
-import { formatDate } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DatePicker } from "@/components/ui/date-picker";
+import { formatDate, getDaysRemaining } from "@/lib/utils";
 
 interface Hotel {
   id: string;
@@ -83,6 +88,15 @@ interface DepartmentProgress {
   percentage: number;
 }
 
+interface SoftOpeningData {
+  hotelId: string;
+  hotelName: string;
+  hotelCode: string;
+  softOpeningDate: string | null;
+  isSubmitted: boolean;
+  partner: { id: string; name: string; email: string } | null;
+}
+
 export default function AdminDashboard() {
   const queryClient = useQueryClient();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -90,6 +104,16 @@ export default function AdminDashboard() {
   const [selectedHotelFilter, setSelectedHotelFilter] = useState<string>("all");
   const [hotelSearchOpen, setHotelSearchOpen] = useState(false);
   const [hotelSearchQuery, setHotelSearchQuery] = useState("");
+
+  // Soft opening date edit state
+  const [editSoftOpeningDialogOpen, setEditSoftOpeningDialogOpen] =
+    useState(false);
+  const [selectedHotelForEdit, setSelectedHotelForEdit] =
+    useState<SoftOpeningData | null>(null);
+  const [editSoftOpeningDate, setEditSoftOpeningDate] = useState<
+    Date | undefined
+  >();
+
   const [formData, setFormData] = useState({
     name: "",
     code: "",
@@ -117,6 +141,35 @@ export default function AdminDashboard() {
       adminApi.getDepartmentStats(
         selectedHotelFilter !== "all" ? selectedHotelFilter : undefined
       ),
+  });
+
+  // Soft opening dates query
+  const { data: softOpeningDatesData, isLoading: softOpeningLoading } =
+    useQuery({
+      queryKey: ["admin", "soft-opening-dates"],
+      queryFn: adminApi.getSoftOpeningDates,
+    });
+
+  // Soft opening date update mutation
+  const updateSoftOpeningMutation = useMutation({
+    mutationFn: ({ hotelId, date }: { hotelId: string; date: string }) =>
+      adminApi.updateSoftOpeningDate(hotelId, date),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["admin", "soft-opening-dates"],
+      });
+      setEditSoftOpeningDialogOpen(false);
+      setSelectedHotelForEdit(null);
+      setEditSoftOpeningDate(undefined);
+      toast.success("Soft opening date updated successfully!");
+    },
+    onError: (error: unknown) => {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to update soft opening date";
+      toast.error(message);
+    },
   });
 
   const createHotelMutation = useMutation({
@@ -153,6 +206,27 @@ export default function AdminDashboard() {
   const hotels: Hotel[] = hotelsData?.data || [];
   const departmentProgress: DepartmentProgress[] =
     departmentStatsData?.data || [];
+  const softOpeningDates: SoftOpeningData[] = softOpeningDatesData?.data || [];
+
+  // Handler for editing soft opening date
+  const handleEditSoftOpeningDate = (hotel: SoftOpeningData) => {
+    setSelectedHotelForEdit(hotel);
+    setEditSoftOpeningDate(
+      hotel.softOpeningDate ? new Date(hotel.softOpeningDate) : undefined
+    );
+    setEditSoftOpeningDialogOpen(true);
+  };
+
+  const handleSaveSoftOpeningDate = () => {
+    if (!selectedHotelForEdit || !editSoftOpeningDate) {
+      toast.error("Please select a date");
+      return;
+    }
+    updateSoftOpeningMutation.mutate({
+      hotelId: selectedHotelForEdit.hotelId,
+      date: editSoftOpeningDate.toISOString(),
+    });
+  };
 
   // Calculate summary stats
   const totalHotels = hotels.length;
@@ -503,7 +577,7 @@ export default function AdminDashboard() {
       }
     >
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
+      {/* <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
         <Card className="opacity-0 animate-fade-in stagger-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Hotels</CardTitle>
@@ -562,7 +636,333 @@ export default function AdminDashboard() {
             <p className="text-xs text-muted-foreground">Not applicable</p>
           </CardContent>
         </Card>
-      </div>
+      </div> */}
+
+      {/* Main Content Tabs */}
+      <Tabs defaultValue="hotels" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsTrigger value="hotels" className="gap-2">
+            <Building2 className="h-4 w-4" />
+            Hotels
+          </TabsTrigger>
+          <TabsTrigger value="soft-opening" className="gap-2">
+            <CalendarDays className="h-4 w-4" />
+            Soft Opening Dates
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Hotels Tab */}
+        <TabsContent value="hotels" className="space-y-6">
+          {/* Hotels Table */}
+          <Card
+            className="opacity-0 animate-fade-in mb-8"
+            style={{ animationDelay: "0.3s" }}
+          >
+            <CardHeader>
+              <CardTitle>All Hotels</CardTitle>
+              <CardDescription>
+                View and manage hotel onboarding progress
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : hotels.length === 0 ? (
+                <div className="text-center py-12">
+                  <Building2 className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                  <h3 className="text-lg font-medium">No hotels yet</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Get started by adding your first hotel
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Hotel</TableHead>
+                      <TableHead>Partner</TableHead>
+                      <TableHead>Progress</TableHead>
+                      <TableHead className="text-center">Pending</TableHead>
+                      <TableHead className="text-center">In Progress</TableHead>
+                      <TableHead className="text-center">Done</TableHead>
+                      <TableHead className="text-center">N/A</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {hotels.map((hotel) => (
+                      <TableRow key={hotel.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{hotel.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {hotel.code}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {hotel.user ? (
+                            <div>
+                              <div className="text-sm">{hotel.user.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {hotel.user.email}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="min-w-[150px]">
+                          <div className="flex items-center gap-3">
+                            <Progress
+                              value={hotel.progressPercentage}
+                              className="h-2 flex-1"
+                            />
+                            <span className="text-sm font-medium w-10">
+                              {hotel.progressPercentage}%
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className="text-red-600 font-medium">
+                            {hotel.pendingTasks}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className="text-yellow-600 font-medium">
+                            {hotel.inProgressTasks}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className="text-green-600 font-medium">
+                            {hotel.completedTasks}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className="text-gray-600 font-medium">
+                            {hotel.notApplicableTasks || 0}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDate(hotel.createdAt)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" asChild>
+                            <Link to={`/admin/hotels/${hotel.id}`}>
+                              View
+                              <ArrowRight className="h-4 w-4 ml-1" />
+                            </Link>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Soft Opening Dates Tab */}
+        <TabsContent value="soft-opening" className="space-y-6">
+          <Card
+            className="opacity-0 animate-fade-in mb-8"
+            style={{ animationDelay: "0.1s" }}
+          >
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <CalendarDays className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>Soft Opening Dates</CardTitle>
+                  <CardDescription>
+                    View and manage expected soft opening dates for all hotels
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {softOpeningLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : softOpeningDates.length === 0 ? (
+                <div className="text-center py-12">
+                  <CalendarDays className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                  <h3 className="text-lg font-medium">No hotels yet</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Hotels will appear here once added
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Hotel</TableHead>
+                      <TableHead>Partner</TableHead>
+                      <TableHead>Soft Opening Date</TableHead>
+                      <TableHead>Days Remaining</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {softOpeningDates.map((hotel) => {
+                      const remaining = hotel.softOpeningDate
+                        ? getDaysRemaining(hotel.softOpeningDate)
+                        : { status: "none" as const, label: "-" };
+
+                      return (
+                        <TableRow key={hotel.hotelId}>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">
+                                {hotel.hotelName}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {hotel.hotelCode}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {hotel.partner ? (
+                              <div>
+                                <div className="text-sm">
+                                  {hotel.partner.name}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {hotel.partner.email}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {hotel.softOpeningDate ? (
+                              <div className="flex items-center gap-2">
+                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">
+                                  {formatDate(hotel.softOpeningDate)}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">
+                                Not set
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {remaining.status !== "none" ? (
+                              <span
+                                className={`font-medium ${
+                                  remaining.status === "overdue"
+                                    ? "text-red-600"
+                                    : remaining.status === "urgent"
+                                    ? "text-orange-600"
+                                    : "text-green-600"
+                                }`}
+                              >
+                                {remaining.label}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {hotel.isSubmitted ? (
+                              <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Submitted
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700">
+                                <Clock className="h-3 w-3" />
+                                Pending
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditSoftOpeningDate(hotel)}
+                            >
+                              <Edit2 className="h-4 w-4 mr-1" />
+                              Edit
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Edit Soft Opening Date Dialog */}
+      <Dialog
+        open={editSoftOpeningDialogOpen}
+        onOpenChange={setEditSoftOpeningDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Soft Opening Date</DialogTitle>
+            <DialogDescription>
+              {selectedHotelForEdit && (
+                <>
+                  Update the expected soft opening date for{" "}
+                  <span className="font-semibold">
+                    {selectedHotelForEdit.hotelName}
+                  </span>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label>Soft Opening Date</Label>
+            <DatePicker
+              date={editSoftOpeningDate}
+              onDateChange={setEditSoftOpeningDate}
+              placeholder="Select soft opening date"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditSoftOpeningDialogOpen(false);
+                setSelectedHotelForEdit(null);
+                setEditSoftOpeningDate(undefined);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveSoftOpeningDate}
+              disabled={
+                !editSoftOpeningDate || updateSoftOpeningMutation.isPending
+              }
+            >
+              {updateSoftOpeningMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Department Progress */}
       <Card
@@ -700,118 +1100,6 @@ export default function AdminDashboard() {
             <div className="text-center py-8 text-muted-foreground">
               No department data available
             </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Hotels Table */}
-      <Card
-        className="opacity-0 animate-fade-in"
-        style={{ animationDelay: "0.3s" }}
-      >
-        <CardHeader>
-          <CardTitle>All Hotels</CardTitle>
-          <CardDescription>
-            View and manage hotel onboarding progress
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : hotels.length === 0 ? (
-            <div className="text-center py-12">
-              <Building2 className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-              <h3 className="text-lg font-medium">No hotels yet</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                Get started by adding your first hotel
-              </p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Hotel</TableHead>
-                  <TableHead>Partner</TableHead>
-                  <TableHead>Progress</TableHead>
-                  <TableHead className="text-center">Pending</TableHead>
-                  <TableHead className="text-center">In Progress</TableHead>
-                  <TableHead className="text-center">Done</TableHead>
-                  <TableHead className="text-center">N/A</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {hotels.map((hotel) => (
-                  <TableRow key={hotel.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{hotel.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {hotel.code}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {hotel.user ? (
-                        <div>
-                          <div className="text-sm">{hotel.user.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {hotel.user.email}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="min-w-[150px]">
-                      <div className="flex items-center gap-3">
-                        <Progress
-                          value={hotel.progressPercentage}
-                          className="h-2 flex-1"
-                        />
-                        <span className="text-sm font-medium w-10">
-                          {hotel.progressPercentage}%
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <span className="text-red-600 font-medium">
-                        {hotel.pendingTasks}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <span className="text-yellow-600 font-medium">
-                        {hotel.inProgressTasks}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <span className="text-green-600 font-medium">
-                        {hotel.completedTasks}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <span className="text-gray-600 font-medium">
-                        {hotel.notApplicableTasks || 0}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(hotel.createdAt)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link to={`/admin/hotels/${hotel.id}`}>
-                          View
-                          <ArrowRight className="h-4 w-4 ml-1" />
-                        </Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
           )}
         </CardContent>
       </Card>

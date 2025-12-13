@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  //output   = "../node_modules/.prisma/client"
+  // output   = "../node_modules/.prisma/client"
   output   = "../../backend/node_modules/.prisma/client"
 }
 
@@ -55,6 +55,10 @@ model Hotel {
   fitnessCentre     String?
   kidsArea          String?
   spa               String?
+
+  // Soft opening date - submitted by user once, editable by admin
+  softOpeningDate          DateTime?
+  softOpeningDateSubmitted Boolean   @default(false)
 
   user         User?
   taskProgress TaskProgress[]
