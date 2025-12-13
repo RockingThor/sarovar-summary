@@ -2,7 +2,7 @@
 CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'USER');
 
 -- CreateEnum
-CREATE TYPE "TaskStatus" AS ENUM ('PENDING', 'IN_PROGRESS', 'DONE');
+CREATE TYPE "TaskStatus" AS ENUM ('PENDING', 'IN_PROGRESS', 'DONE', 'NOT_APPLICABLE');
 
 -- CreateTable
 CREATE TABLE "User" (
@@ -26,6 +26,13 @@ CREATE TABLE "Hotel" (
     "address" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "allDayDining" TEXT,
+    "restoBar" TEXT,
+    "banquetingIndoor" TEXT,
+    "banquetingOutdoor" TEXT,
+    "fitnessCentre" TEXT,
+    "kidsArea" TEXT,
+    "spa" TEXT,
 
     CONSTRAINT "Hotel_pkey" PRIMARY KEY ("id")
 );
@@ -55,6 +62,9 @@ CREATE TABLE "Question" (
     "checklistItem" TEXT NOT NULL,
     "categoryId" TEXT NOT NULL,
     "departmentId" TEXT NOT NULL,
+    "keyWords" TEXT[],
+    "importance" TEXT NOT NULL DEFAULT 'Med',
+    "scoring" DOUBLE PRECISION NOT NULL DEFAULT 1.0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Question_pkey" PRIMARY KEY ("id")
@@ -67,6 +77,8 @@ CREATE TABLE "TaskProgress" (
     "questionId" TEXT NOT NULL,
     "status" "TaskStatus" NOT NULL DEFAULT 'PENDING',
     "estimatedDate" TIMESTAMP(3),
+    "completedDate" TIMESTAMP(3),
+    "remark" TEXT,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "updatedById" TEXT NOT NULL,
 

@@ -20,6 +20,14 @@ const createHotelSchema = z.object({
   address: z.string().min(1),
   partnerEmail: z.string().email(),
   partnerName: z.string().min(1),
+  // Optional hotel facility details
+  allDayDining: z.string().optional(),
+  restoBar: z.string().optional(),
+  banquetingIndoor: z.string().optional(),
+  banquetingOutdoor: z.string().optional(),
+  fitnessCentre: z.string().optional(),
+  kidsArea: z.string().optional(),
+  spa: z.string().optional(),
 });
 
 const updateTaskSchema = z.object({
@@ -165,6 +173,13 @@ router.post(
             name: data.name,
             code: data.code,
             address: data.address,
+            allDayDining: data.allDayDining,
+            restoBar: data.restoBar,
+            banquetingIndoor: data.banquetingIndoor,
+            banquetingOutdoor: data.banquetingOutdoor,
+            fitnessCentre: data.fitnessCentre,
+            kidsArea: data.kidsArea,
+            spa: data.spa,
           },
         });
 

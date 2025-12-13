@@ -1,7 +1,7 @@
 generator client {
   provider = "prisma-client-js"
   //output   = "../node_modules/.prisma/client"
-  //output   = "../../frontend/node_modules/.prisma/client"
+  output   = "../../backend/node_modules/.prisma/client"
 }
 
 datasource db {
@@ -46,6 +46,15 @@ model Hotel {
   address   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Optional hotel facility details
+  allDayDining      String?
+  restoBar          String?
+  banquetingIndoor  String?
+  banquetingOutdoor String?
+  fitnessCentre     String?
+  kidsArea          String?
+  spa               String?
 
   user         User?
   taskProgress TaskProgress[]

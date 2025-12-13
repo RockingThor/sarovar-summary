@@ -56,6 +56,14 @@ export const adminApi = {
     address: string
     partnerEmail: string
     partnerName: string
+    // Optional hotel facility details
+    allDayDining?: string
+    restoBar?: string
+    banquetingIndoor?: string
+    banquetingOutdoor?: string
+    fitnessCentre?: string
+    kidsArea?: string
+    spa?: string
   }) => {
     const response = await api.post('/admin/hotels', data)
     return response.data

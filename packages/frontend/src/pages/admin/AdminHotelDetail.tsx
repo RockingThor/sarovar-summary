@@ -621,6 +621,84 @@ export default function AdminHotelDetail() {
         </Card>
       )}
 
+      {/* Hotel Facility Details */}
+      {(hotel.allDayDining ||
+        hotel.restoBar ||
+        hotel.banquetingIndoor ||
+        hotel.banquetingOutdoor ||
+        hotel.fitnessCentre ||
+        hotel.kidsArea ||
+        hotel.spa) && (
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              Facility Details
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
+              {hotel.allDayDining && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <span className="text-muted-foreground block text-xs mb-1">
+                    All Day Dining
+                  </span>
+                  <span className="font-medium">{hotel.allDayDining}</span>
+                </div>
+              )}
+              {hotel.restoBar && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <span className="text-muted-foreground block text-xs mb-1">
+                    Resto Bar
+                  </span>
+                  <span className="font-medium">{hotel.restoBar}</span>
+                </div>
+              )}
+              {hotel.banquetingIndoor && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <span className="text-muted-foreground block text-xs mb-1">
+                    Banqueting - Indoor
+                  </span>
+                  <span className="font-medium">{hotel.banquetingIndoor}</span>
+                </div>
+              )}
+              {hotel.banquetingOutdoor && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <span className="text-muted-foreground block text-xs mb-1">
+                    Banqueting - Outdoor
+                  </span>
+                  <span className="font-medium">{hotel.banquetingOutdoor}</span>
+                </div>
+              )}
+              {hotel.fitnessCentre && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <span className="text-muted-foreground block text-xs mb-1">
+                    Fitness Centre
+                  </span>
+                  <span className="font-medium">{hotel.fitnessCentre}</span>
+                </div>
+              )}
+              {hotel.kidsArea && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <span className="text-muted-foreground block text-xs mb-1">
+                    Kids Area
+                  </span>
+                  <span className="font-medium">{hotel.kidsArea}</span>
+                </div>
+              )}
+              {hotel.spa && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <span className="text-muted-foreground block text-xs mb-1">
+                    Spa
+                  </span>
+                  <span className="font-medium">{hotel.spa}</span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs defaultValue="tasks" className="space-y-4">
         <TabsList>
           <TabsTrigger value="tasks">

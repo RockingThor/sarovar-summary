@@ -45,6 +45,7 @@ import {
   AlertCircle,
   Loader2,
   ArrowRight,
+  ArrowLeft,
   Ban,
   ChevronsUpDown,
   Check,
@@ -85,6 +86,7 @@ interface DepartmentProgress {
 export default function AdminDashboard() {
   const queryClient = useQueryClient();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [formStep, setFormStep] = useState<1 | 2>(1);
   const [selectedHotelFilter, setSelectedHotelFilter] = useState<string>("all");
   const [hotelSearchOpen, setHotelSearchOpen] = useState(false);
   const [hotelSearchQuery, setHotelSearchQuery] = useState("");
@@ -94,6 +96,14 @@ export default function AdminDashboard() {
     address: "",
     partnerEmail: "",
     partnerName: "",
+    // Optional hotel facility details
+    allDayDining: "",
+    restoBar: "",
+    banquetingIndoor: "",
+    banquetingOutdoor: "",
+    fitnessCentre: "",
+    kidsArea: "",
+    spa: "",
   });
 
   const { data: hotelsData, isLoading } = useQuery({
@@ -114,12 +124,20 @@ export default function AdminDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "hotels"] });
       setCreateDialogOpen(false);
+      setFormStep(1);
       setFormData({
         name: "",
         code: "",
         address: "",
         partnerEmail: "",
         partnerName: "",
+        allDayDining: "",
+        restoBar: "",
+        banquetingIndoor: "",
+        banquetingOutdoor: "",
+        fitnessCentre: "",
+        kidsArea: "",
+        spa: "",
       });
       toast.success(
         "Hotel created successfully! Password reset email will be sent to the partner."
@@ -146,9 +164,53 @@ export default function AdminDashboard() {
     0
   );
 
-  const handleCreateHotel = (e: React.FormEvent) => {
-    e.preventDefault();
-    createHotelMutation.mutate(formData);
+  const handleNextStep = () => {
+    // Validate required fields before moving to step 2
+    if (
+      !formData.name ||
+      !formData.code ||
+      !formData.address ||
+      !formData.partnerName ||
+      !formData.partnerEmail
+    ) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+    setFormStep(2);
+  };
+
+  const handlePrevStep = () => {
+    setFormStep(1);
+  };
+
+  const handleCreateHotel = () => {
+    // Filter out empty optional fields
+    const submitData = {
+      name: formData.name,
+      code: formData.code,
+      address: formData.address,
+      partnerEmail: formData.partnerEmail,
+      partnerName: formData.partnerName,
+      ...(formData.allDayDining && { allDayDining: formData.allDayDining }),
+      ...(formData.restoBar && { restoBar: formData.restoBar }),
+      ...(formData.banquetingIndoor && {
+        banquetingIndoor: formData.banquetingIndoor,
+      }),
+      ...(formData.banquetingOutdoor && {
+        banquetingOutdoor: formData.banquetingOutdoor,
+      }),
+      ...(formData.fitnessCentre && { fitnessCentre: formData.fitnessCentre }),
+      ...(formData.kidsArea && { kidsArea: formData.kidsArea }),
+      ...(formData.spa && { spa: formData.spa }),
+    };
+    createHotelMutation.mutate(submitData);
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setCreateDialogOpen(open);
+    if (!open) {
+      setFormStep(1);
+    }
   };
 
   return (
@@ -156,124 +218,286 @@ export default function AdminDashboard() {
       title="Hotels Dashboard"
       description="Manage and monitor all hotel onboarding progress"
       actions={
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <Dialog open={createDialogOpen} onOpenChange={handleDialogClose}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
               Add Hotel
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <form onSubmit={handleCreateHotel}>
+          <DialogContent className="sm:max-w-[550px]">
+            <div>
               <DialogHeader>
                 <DialogTitle>Add New Hotel</DialogTitle>
                 <DialogDescription>
-                  Create a new hotel and partner account. The partner will
-                  receive an email to set their password.
+                  {formStep === 1
+                    ? "Step 1 of 2: Enter basic hotel and partner information (required)"
+                    : "Step 2 of 2: Enter facility details (optional)"}
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Hotel Name</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
-                      placeholder="Grand Hotel"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="code">Hotel Code</Label>
-                    <Input
-                      id="code"
-                      value={formData.code}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          code: e.target.value.toUpperCase(),
-                        })
-                      }
-                      placeholder="GH001"
-                      required
-                      maxLength={20}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="address">Address</Label>
-                  <Input
-                    id="address"
-                    value={formData.address}
-                    onChange={(e) =>
-                      setFormData({ ...formData, address: e.target.value })
-                    }
-                    placeholder="123 Main Street, City"
-                    required
-                  />
-                </div>
-                <div className="border-t pt-4 mt-2">
-                  <p className="text-sm font-medium mb-3">Hotel Details</p>
+
+              {/* Step indicator */}
+              <div className="flex items-center gap-2 py-4">
+                <div
+                  className={`flex-1 h-1.5 rounded-full transition-colors ${
+                    formStep >= 1 ? "bg-primary" : "bg-muted"
+                  }`}
+                />
+                <div
+                  className={`flex-1 h-1.5 rounded-full transition-colors ${
+                    formStep >= 2 ? "bg-primary" : "bg-muted"
+                  }`}
+                />
+              </div>
+
+              {/* Step 1: Required fields */}
+              {formStep === 1 && (
+                <div className="grid gap-4 py-2">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="partnerName">General Manager Name</Label>
+                      <Label htmlFor="name">
+                        Hotel Name <span className="text-red-500">*</span>
+                      </Label>
                       <Input
-                        id="partnerName"
-                        value={formData.partnerName}
+                        id="name"
+                        value={formData.name}
                         onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            partnerName: e.target.value,
-                          })
+                          setFormData({ ...formData, name: e.target.value })
                         }
-                        placeholder="John Doe"
-                        required
+                        placeholder="Grand Hotel"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="partnerEmail">
-                        General Manager Email
+                      <Label htmlFor="code">
+                        Hotel Code <span className="text-red-500">*</span>
                       </Label>
                       <Input
-                        id="partnerEmail"
-                        type="email"
-                        value={formData.partnerEmail}
+                        id="code"
+                        value={formData.code}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            partnerEmail: e.target.value,
+                            code: e.target.value.toUpperCase(),
                           })
                         }
-                        placeholder="partner@example.com"
-                        required
+                        placeholder="GH001"
+                        maxLength={20}
                       />
                     </div>
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="address">
+                      Address <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="address"
+                      value={formData.address}
+                      onChange={(e) =>
+                        setFormData({ ...formData, address: e.target.value })
+                      }
+                      placeholder="123 Main Street, City"
+                    />
+                  </div>
+                  <div className="border-t pt-4 mt-2">
+                    <p className="text-sm font-medium mb-3">
+                      General Manager Details
+                    </p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="partnerName">
+                          Name <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="partnerName"
+                          value={formData.partnerName}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              partnerName: e.target.value,
+                            })
+                          }
+                          placeholder="John Doe"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="partnerEmail">
+                          Email <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="partnerEmail"
+                          type="email"
+                          value={formData.partnerEmail}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              partnerEmail: e.target.value,
+                            })
+                          }
+                          placeholder="partner@example.com"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setCreateDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={createHotelMutation.isPending}>
-                  {createHotelMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    "Create Hotel"
-                  )}
-                </Button>
+              )}
+
+              {/* Step 2: Optional facility details */}
+              {formStep === 2 && (
+                <div className="grid gap-4 py-2 max-h-[400px] overflow-y-auto">
+                  <p className="text-sm text-muted-foreground">
+                    Add facility details for this hotel. All fields are
+                    optional.
+                  </p>
+                  <div className="grid grid-cols-2 gap-4 px-1">
+                    <div className="space-y-2">
+                      <Label htmlFor="allDayDining">All Day Dining</Label>
+                      <Input
+                        id="allDayDining"
+                        value={formData.allDayDining}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            allDayDining: e.target.value,
+                          })
+                        }
+                        placeholder="e.g., 75 covers"
+                      />
+                    </div>
+                    <div className="space-y-2 px-1">
+                      <Label htmlFor="restoBar">Resto Bar</Label>
+                      <Input
+                        id="restoBar"
+                        value={formData.restoBar}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            restoBar: e.target.value,
+                          })
+                        }
+                        placeholder="e.g., 45 covers"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 px-1">
+                    <div className="space-y-2">
+                      <Label htmlFor="banquetingIndoor">
+                        Banqueting - Indoor
+                      </Label>
+                      <Input
+                        id="banquetingIndoor"
+                        value={formData.banquetingIndoor}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            banquetingIndoor: e.target.value,
+                          })
+                        }
+                        placeholder="e.g., 5000 Sq Ft"
+                      />
+                    </div>
+                    <div className="space-y-2 px-1">
+                      <Label htmlFor="banquetingOutdoor">
+                        Banqueting - Outdoor
+                      </Label>
+                      <Input
+                        id="banquetingOutdoor"
+                        value={formData.banquetingOutdoor}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            banquetingOutdoor: e.target.value,
+                          })
+                        }
+                        placeholder="e.g., 3000 Sq Ft or NA"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2 px-1">
+                      <Label htmlFor="fitnessCentre">Fitness Centre</Label>
+                      <Input
+                        id="fitnessCentre"
+                        value={formData.fitnessCentre}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            fitnessCentre: e.target.value,
+                          })
+                        }
+                        placeholder="e.g., Available or NA"
+                      />
+                    </div>
+                    <div className="space-y-2 px-1">
+                      <Label htmlFor="kidsArea">Kids Area</Label>
+                      <Input
+                        id="kidsArea"
+                        value={formData.kidsArea}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            kidsArea: e.target.value,
+                          })
+                        }
+                        placeholder="e.g., 2500 Sqft"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2 px-1">
+                    <Label htmlFor="spa">Spa</Label>
+                    <Input
+                      id="spa"
+                      value={formData.spa}
+                      onChange={(e) =>
+                        setFormData({ ...formData, spa: e.target.value })
+                      }
+                      placeholder="e.g., By Tatva (3 Beds)"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <DialogFooter className="mt-4">
+                {formStep === 1 ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => handleDialogClose(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="button" onClick={handleNextStep}>
+                      Next
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handlePrevStep}
+                    >
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      Back
+                    </Button>
+                    <Button
+                      onClick={handleCreateHotel}
+                      disabled={createHotelMutation.isPending}
+                    >
+                      {createHotelMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        "Create Hotel"
+                      )}
+                    </Button>
+                  </>
+                )}
               </DialogFooter>
-            </form>
+            </div>
           </DialogContent>
         </Dialog>
       }
