@@ -51,6 +51,9 @@ import {
   Building2,
   User,
   Ban,
+  CalendarDays,
+  Calendar,
+  Edit2,
 } from "lucide-react";
 import {
   PieChart,
@@ -64,7 +67,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { formatDate, formatDateTime } from "@/lib/utils";
+import { formatDate, formatDateTime, getDaysRemaining } from "@/lib/utils";
 
 interface Task {
   questionId: string;
@@ -112,6 +115,13 @@ export default function AdminHotelDetail() {
 
   const [showAuditLog, setShowAuditLog] = useState(false);
 
+  // Soft opening date edit state
+  const [editSoftOpeningDialogOpen, setEditSoftOpeningDialogOpen] =
+    useState(false);
+  const [editSoftOpeningDate, setEditSoftOpeningDate] = useState<
+    Date | undefined
+  >();
+
   const { data: hotelData, isLoading } = useQuery({
     queryKey: ["admin", "hotel", id],
     queryFn: () => adminApi.getHotelDetail(id!),
@@ -158,6 +168,23 @@ export default function AdminHotelDetail() {
     },
     onError: () => {
       toast.error("Failed to update task");
+    },
+  });
+
+  // Soft opening date update mutation
+  const updateSoftOpeningMutation = useMutation({
+    mutationFn: (date: string) => adminApi.updateSoftOpeningDate(id!, date),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "hotel", id] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin", "soft-opening-dates"],
+      });
+      setEditSoftOpeningDialogOpen(false);
+      setEditSoftOpeningDate(undefined);
+      toast.success("Soft opening date updated successfully");
+    },
+    onError: () => {
+      toast.error("Failed to update soft opening date");
     },
   });
 
@@ -311,6 +338,21 @@ export default function AdminHotelDetail() {
     });
   };
 
+  const handleEditSoftOpeningDate = () => {
+    setEditSoftOpeningDate(
+      hotel?.softOpeningDate ? new Date(hotel.softOpeningDate) : undefined
+    );
+    setEditSoftOpeningDialogOpen(true);
+  };
+
+  const handleSaveSoftOpeningDate = () => {
+    if (!editSoftOpeningDate) {
+      toast.error("Please select a date");
+      return;
+    }
+    updateSoftOpeningMutation.mutate(editSoftOpeningDate.toISOString());
+  };
+
   if (isLoading) {
     return (
       <DashboardLayout title="Loading...">
@@ -362,7 +404,7 @@ export default function AdminHotelDetail() {
     >
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-6 mb-6">
-        <Card>
+        <Card className="col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">
               Readiness of the Hotel
@@ -373,7 +415,7 @@ export default function AdminHotelDetail() {
               <Progress value={stats.percentage} className="h-2 flex-1" />
               <span className="text-lg font-bold">{stats.percentage}%</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
+            {/* <p className="text-xs text-muted-foreground mt-1">
               Score: {stats.completedScore.toFixed(1)} /{" "}
               {(
                 stats.totalScore -
@@ -381,17 +423,10 @@ export default function AdminHotelDetail() {
                   .filter((t) => t.status === "NOT_APPLICABLE")
                   .reduce((sum, t) => sum + t.scoring, 0)
               ).toFixed(1)}
-            </p>
+            </p> */}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-          </CardContent>
-        </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Pending</CardTitle>
@@ -597,25 +632,191 @@ export default function AdminHotelDetail() {
         </Card>
       </div>
 
-      {/* Partner Info */}
-      {hotel.user && (
+      {/* Partner Info & Soft Opening Date */}
+      <div className="grid gap-6 md:grid-cols-2 mb-6">
+        {/* Partner Info */}
+        {hotel.user && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Partner Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Name:</span>{" "}
+                  <span className="font-medium">{hotel.user.name}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Email:</span>{" "}
+                  <span className="font-medium">{hotel.user.email}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Soft Opening Date */}
+        <Card className="border-2 border-primary/20">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-primary" />
+                Expected Soft Opening Date
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleEditSoftOpeningDate}
+              >
+                <Edit2 className="h-4 w-4 mr-1" />
+                Edit
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {hotel.softOpeningDate ? (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Date</p>
+                    <p className="font-semibold">
+                      {formatDate(hotel.softOpeningDate)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Days Remaining
+                    </p>
+                    <p
+                      className={`font-semibold ${(() => {
+                        const remaining = getDaysRemaining(
+                          hotel.softOpeningDate
+                        );
+                        return remaining.status === "overdue"
+                          ? "text-red-600"
+                          : remaining.status === "urgent"
+                          ? "text-orange-600"
+                          : "text-green-600";
+                      })()}`}
+                    >
+                      {getDaysRemaining(hotel.softOpeningDate).label}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {hotel.softOpeningDateSubmitted ? (
+                    <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Submitted by Partner
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">
+                      <Edit2 className="h-3 w-3" />
+                      Set by Admin
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <CalendarDays className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  No soft opening date set yet
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={handleEditSoftOpeningDate}
+                >
+                  Set Date
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Hotel Facility Details */}
+      {(hotel.allDayDining ||
+        hotel.restoBar ||
+        hotel.banquetingIndoor ||
+        hotel.banquetingOutdoor ||
+        hotel.fitnessCentre ||
+        hotel.kidsArea ||
+        hotel.spa) && (
         <Card className="mb-6">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Partner Information
+              <Building2 className="h-4 w-4" />
+              Facility Details
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-6 text-sm">
-              <div>
-                <span className="text-muted-foreground">Name:</span>{" "}
-                <span className="font-medium">{hotel.user.name}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Email:</span>{" "}
-                <span className="font-medium">{hotel.user.email}</span>
-              </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
+              {hotel.allDayDining && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <span className="text-muted-foreground block text-xs mb-1">
+                    All Day Dining
+                  </span>
+                  <span className="font-medium">{hotel.allDayDining}</span>
+                </div>
+              )}
+              {hotel.restoBar && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <span className="text-muted-foreground block text-xs mb-1">
+                    Resto Bar
+                  </span>
+                  <span className="font-medium">{hotel.restoBar}</span>
+                </div>
+              )}
+              {hotel.banquetingIndoor && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <span className="text-muted-foreground block text-xs mb-1">
+                    Banqueting - Indoor
+                  </span>
+                  <span className="font-medium">{hotel.banquetingIndoor}</span>
+                </div>
+              )}
+              {hotel.banquetingOutdoor && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <span className="text-muted-foreground block text-xs mb-1">
+                    Banqueting - Outdoor
+                  </span>
+                  <span className="font-medium">{hotel.banquetingOutdoor}</span>
+                </div>
+              )}
+              {hotel.fitnessCentre && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <span className="text-muted-foreground block text-xs mb-1">
+                    Fitness Centre
+                  </span>
+                  <span className="font-medium">{hotel.fitnessCentre}</span>
+                </div>
+              )}
+              {hotel.kidsArea && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <span className="text-muted-foreground block text-xs mb-1">
+                    Kids Area
+                  </span>
+                  <span className="font-medium">{hotel.kidsArea}</span>
+                </div>
+              )}
+              {hotel.spa && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <span className="text-muted-foreground block text-xs mb-1">
+                    Spa
+                  </span>
+                  <span className="font-medium">{hotel.spa}</span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -714,6 +915,7 @@ export default function AdminHotelDetail() {
                     <TableHead className="text-right">Score</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Est. Date</TableHead>
+                    <TableHead>Days Remaining</TableHead>
                     <TableHead>Completed</TableHead>
                     <TableHead>Remark</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -744,6 +946,40 @@ export default function AdminHotelDetail() {
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {formatDate(task.estimatedDate)}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {(() => {
+                          // Only show days remaining for non-completed and non-NA tasks
+                          if (
+                            task.status === "DONE" ||
+                            task.status === "NOT_APPLICABLE"
+                          ) {
+                            return (
+                              <span className="text-muted-foreground">-</span>
+                            );
+                          }
+                          const remaining = getDaysRemaining(
+                            task.estimatedDate
+                          );
+                          if (remaining.status === "none") {
+                            return (
+                              <span className="text-muted-foreground">-</span>
+                            );
+                          }
+                          return (
+                            <span
+                              className={
+                                remaining.status === "overdue"
+                                  ? "text-red-600 font-medium"
+                                  : remaining.status === "urgent"
+                                  ? "text-orange-600 font-medium"
+                                  : "text-muted-foreground"
+                              }
+                            >
+                              {remaining.label}
+                            </span>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {formatDate(task.completedDate)}
@@ -928,6 +1164,55 @@ export default function AdminHotelDetail() {
               disabled={updateTaskMutation.isPending}
             >
               {updateTaskMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Soft Opening Date Dialog */}
+      <Dialog
+        open={editSoftOpeningDialogOpen}
+        onOpenChange={setEditSoftOpeningDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Soft Opening Date</DialogTitle>
+            <DialogDescription>
+              Update the expected soft opening date for {hotel.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label>Soft Opening Date</Label>
+            <DatePicker
+              date={editSoftOpeningDate}
+              onDateChange={setEditSoftOpeningDate}
+              placeholder="Select soft opening date"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditSoftOpeningDialogOpen(false);
+                setEditSoftOpeningDate(undefined);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveSoftOpeningDate}
+              disabled={
+                !editSoftOpeningDate || updateSoftOpeningMutation.isPending
+              }
+            >
+              {updateSoftOpeningMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Saving...

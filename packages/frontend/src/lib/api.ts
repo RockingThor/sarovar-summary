@@ -56,6 +56,14 @@ export const adminApi = {
     address: string
     partnerEmail: string
     partnerName: string
+    // Optional hotel facility details
+    allDayDining?: string
+    restoBar?: string
+    banquetingIndoor?: string
+    banquetingOutdoor?: string
+    fitnessCentre?: string
+    kidsArea?: string
+    spa?: string
   }) => {
     const response = await api.post('/admin/hotels', data)
     return response.data
@@ -83,6 +91,14 @@ export const adminApi = {
   getDepartmentStats: async (hotelId?: string) => {
     const params = hotelId ? `?hotelId=${hotelId}` : ''
     const response = await api.get(`/admin/department-stats${params}`)
+    return response.data
+  },
+  getSoftOpeningDates: async () => {
+    const response = await api.get('/admin/soft-opening-dates')
+    return response.data
+  },
+  updateSoftOpeningDate: async (hotelId: string, softOpeningDate: string) => {
+    const response = await api.patch(`/admin/hotels/${hotelId}/soft-opening-date`, { softOpeningDate })
     return response.data
   },
 }
@@ -116,6 +132,14 @@ export const userApi = {
   },
   getCategories: async () => {
     const response = await api.get('/user/categories')
+    return response.data
+  },
+  getSoftOpeningDate: async () => {
+    const response = await api.get('/user/soft-opening-date')
+    return response.data
+  },
+  submitSoftOpeningDate: async (softOpeningDate: string) => {
+    const response = await api.post('/user/soft-opening-date', { softOpeningDate })
     return response.data
   },
 }

@@ -49,8 +49,11 @@ import {
   ArrowRight,
   Building2,
   Ban,
+  CalendarDays,
+  Calendar,
+  Lock,
 } from "lucide-react";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getDaysRemaining } from "@/lib/utils";
 import {
   PieChart,
   Pie,
@@ -113,9 +116,35 @@ export default function UserDashboard() {
   const [completedDate, setCompletedDate] = useState<Date | undefined>();
   const [remark, setRemark] = useState<string>("");
 
+  // Soft opening date state
+  const [softOpeningDate, setSoftOpeningDate] = useState<Date | undefined>();
+  const [softOpeningDialogOpen, setSoftOpeningDialogOpen] = useState(false);
+
   const { data: dashboardData, isLoading: dashboardLoading } = useQuery({
     queryKey: ["user", "dashboard"],
     queryFn: userApi.getDashboard,
+  });
+
+  // Soft opening date query
+  const { data: softOpeningData, isLoading: softOpeningLoading } = useQuery({
+    queryKey: ["user", "soft-opening-date"],
+    queryFn: userApi.getSoftOpeningDate,
+  });
+
+  // Soft opening date mutation
+  const submitSoftOpeningMutation = useMutation({
+    mutationFn: (date: string) => userApi.submitSoftOpeningDate(date),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user", "soft-opening-date"] });
+      setSoftOpeningDialogOpen(false);
+      setSoftOpeningDate(undefined);
+      toast.success("Soft opening date submitted successfully!");
+    },
+    onError: (error: unknown) => {
+      const message =
+        error instanceof Error ? error.message : "Failed to submit soft opening date";
+      toast.error(message);
+    },
   });
 
   const { data: tasksData, isLoading: tasksLoading } = useQuery({
@@ -400,6 +429,133 @@ export default function UserDashboard() {
         </CardContent>
       </Card>
 
+      {/* Soft Opening Date Section */}
+      <Card
+        className="mb-8 opacity-0 animate-fade-in border-2 border-primary/20"
+        style={{ animationDelay: "0.35s" }}
+      >
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <CalendarDays className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Expected Soft Opening Date</CardTitle>
+              <CardDescription>
+                When do you expect the hotel to soft open based on current progress?
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {softOpeningLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : softOpeningData?.data?.isSubmitted ? (
+            // Already submitted - show read-only view with remaining days
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-3 flex-1">
+                <Lock className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Submitted Date</p>
+                  <p className="text-lg font-semibold">
+                    {formatDate(softOpeningData.data.softOpeningDate)}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Calendar className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Days Remaining</p>
+                  <p className={`text-lg font-semibold ${
+                    (() => {
+                      const remaining = getDaysRemaining(softOpeningData.data.softOpeningDate);
+                      return remaining.status === 'overdue' ? 'text-red-600' :
+                             remaining.status === 'urgent' ? 'text-orange-600' :
+                             'text-green-600';
+                    })()
+                  }`}>
+                    {(() => {
+                      const remaining = getDaysRemaining(softOpeningData.data.softOpeningDate);
+                      return remaining.label;
+                    })()}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            // Not submitted - show input form
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Please provide your expected soft opening date. This can only be submitted once.
+              </p>
+              <Button
+                onClick={() => setSoftOpeningDialogOpen(true)}
+                className="w-full sm:w-auto"
+              >
+                <CalendarDays className="h-4 w-4 mr-2" />
+                Set Soft Opening Date
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Soft Opening Date Dialog */}
+      <Dialog open={softOpeningDialogOpen} onOpenChange={setSoftOpeningDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set Expected Soft Opening Date</DialogTitle>
+            <DialogDescription>
+              Based on the current progress and situation, when do you expect the hotel to soft open?
+              <br />
+              <span className="text-orange-600 font-medium mt-2 block">
+                ⚠️ This can only be submitted once and cannot be changed later.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label>Expected Soft Opening Date *</Label>
+            <DatePicker
+              date={softOpeningDate}
+              onDateChange={setSoftOpeningDate}
+              placeholder="Select expected soft opening date"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSoftOpeningDialogOpen(false);
+                setSoftOpeningDate(undefined);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!softOpeningDate) {
+                  toast.error("Please select a date");
+                  return;
+                }
+                submitSoftOpeningMutation.mutate(softOpeningDate.toISOString());
+              }}
+              disabled={!softOpeningDate || submitSoftOpeningMutation.isPending}
+            >
+              {submitSoftOpeningMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                "Submit Date"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Tasks Section */}
       <Tabs defaultValue="all" className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -670,6 +826,7 @@ function TasksTable({
               <TableHead>Importance</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Est. Date</TableHead>
+              <TableHead>Days Remaining</TableHead>
               <TableHead>Completed</TableHead>
               <TableHead>Remark</TableHead>
               {showUpdateButton && (
@@ -695,6 +852,27 @@ function TasksTable({
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {formatDate(task.estimatedDate)}
+                </TableCell>
+                <TableCell className="text-sm">
+                  {(() => {
+                    // Only show days remaining for non-completed and non-NA tasks
+                    if (task.status === "DONE" || task.status === "NOT_APPLICABLE") {
+                      return <span className="text-muted-foreground">-</span>;
+                    }
+                    const remaining = getDaysRemaining(task.estimatedDate);
+                    if (remaining.status === 'none') {
+                      return <span className="text-muted-foreground">-</span>;
+                    }
+                    return (
+                      <span className={
+                        remaining.status === 'overdue' ? 'text-red-600 font-medium' :
+                        remaining.status === 'urgent' ? 'text-orange-600 font-medium' :
+                        'text-muted-foreground'
+                      }>
+                        {remaining.label}
+                      </span>
+                    );
+                  })()}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {formatDate(task.completedDate)}

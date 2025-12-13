@@ -20,6 +20,14 @@ const createHotelSchema = z.object({
   address: z.string().min(1),
   partnerEmail: z.string().email(),
   partnerName: z.string().min(1),
+  // Optional hotel facility details
+  allDayDining: z.string().optional(),
+  restoBar: z.string().optional(),
+  banquetingIndoor: z.string().optional(),
+  banquetingOutdoor: z.string().optional(),
+  fitnessCentre: z.string().optional(),
+  kidsArea: z.string().optional(),
+  spa: z.string().optional(),
 });
 
 const updateTaskSchema = z.object({
@@ -165,6 +173,13 @@ router.post(
             name: data.name,
             code: data.code,
             address: data.address,
+            allDayDining: data.allDayDining,
+            restoBar: data.restoBar,
+            banquetingIndoor: data.banquetingIndoor,
+            banquetingOutdoor: data.banquetingOutdoor,
+            fitnessCentre: data.fitnessCentre,
+            kidsArea: data.kidsArea,
+            spa: data.spa,
           },
         });
 
@@ -466,6 +481,92 @@ router.get(
     res.json({
       success: true,
       data: categories,
+    });
+  })
+);
+
+// Get all hotels with their soft opening dates
+router.get(
+  "/soft-opening-dates",
+  asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
+    const hotels = await prisma.hotel.findMany({
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        softOpeningDate: true,
+        softOpeningDateSubmitted: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    res.json({
+      success: true,
+      data: hotels.map((hotel) => ({
+        hotelId: hotel.id,
+        hotelName: hotel.name,
+        hotelCode: hotel.code,
+        softOpeningDate: hotel.softOpeningDate,
+        isSubmitted: hotel.softOpeningDateSubmitted,
+        partner: hotel.user,
+      })),
+    });
+  })
+);
+
+// Schema for admin updating soft opening date
+const updateSoftOpeningDateSchema = z.object({
+  softOpeningDate: z.string().datetime(),
+});
+
+// Update soft opening date for a hotel (admin can always edit)
+router.patch(
+  "/hotels/:hotelId/soft-opening-date",
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const { hotelId } = req.params;
+    const data = updateSoftOpeningDateSchema.parse(req.body);
+
+    const hotel = await prisma.hotel.findUnique({
+      where: { id: hotelId },
+    });
+
+    if (!hotel) {
+      throw new AppError("Hotel not found", 404);
+    }
+
+    const updatedHotel = await prisma.hotel.update({
+      where: { id: hotelId },
+      data: {
+        softOpeningDate: new Date(data.softOpeningDate),
+        // Admin can set the date even if user hasn't submitted, mark as submitted
+        softOpeningDateSubmitted: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        softOpeningDate: true,
+        softOpeningDateSubmitted: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        hotelId: updatedHotel.id,
+        hotelName: updatedHotel.name,
+        softOpeningDate: updatedHotel.softOpeningDate,
+        isSubmitted: updatedHotel.softOpeningDateSubmitted,
+      },
+      message: "Soft opening date updated successfully",
     });
   })
 );
